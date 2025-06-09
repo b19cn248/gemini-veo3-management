@@ -1,0 +1,67 @@
+package com.ptit.google.veo3.dto;
+
+import com.ptit.google.veo3.entity.DeliveryStatus;
+import com.ptit.google.veo3.entity.PaymentStatus;
+import com.ptit.google.veo3.entity.VideoStatus;
+import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+/**
+ * DTO để nhận dữ liệu từ client khi tạo/cập nhật video
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class VideoRequestDto {
+
+    @NotBlank(message = "Tên khách hàng không được để trống")
+    @Size(max = 255, message = "Tên khách hàng không được vượt quá 255 ký tự")
+    private String customerName;
+
+    @Size(max = 5000, message = "Nội dung video không được vượt quá 5000 ký tự")
+    private String videoContent;
+
+    @Size(max = 500, message = "URL hình ảnh không được vượt quá 500 ký tự")
+    private String imageUrl;
+
+    @Pattern(regexp = "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
+            message = "Thời lượng video phải có định dạng HH:mm:ss")
+    private String videoDuration;
+
+    @Future(message = "Thời gian giao hàng phải là thời gian trong tương lai")
+    private LocalDateTime deliveryTime;
+
+    @Size(max = 255, message = "Tên nhân viên được giao không được vượt quá 255 ký tự")
+    private String assignedStaff;
+
+    private VideoStatus status;
+
+    @Size(max = 500, message = "URL video không được vượt quá 500 ký tự")
+    private String videoUrl;
+
+    private LocalDateTime completedTime;
+
+    private Boolean customerApproved;
+
+    @Size(max = 5000, message = "Ghi chú khách hàng không được vượt quá 5000 ký tự")
+    private String customerNote;
+
+    private Boolean checked;
+
+    private DeliveryStatus deliveryStatus;
+
+    private PaymentStatus paymentStatus;
+
+    private LocalDateTime paymentDate;
+
+    @DecimalMin(value = "0.0", inclusive = false, message = "Giá trị đơn hàng phải lớn hơn 0")
+    @Digits(integer = 13, fraction = 2, message = "Giá trị đơn hàng không hợp lệ")
+    private BigDecimal orderValue;
+}

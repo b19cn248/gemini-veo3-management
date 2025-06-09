@@ -28,9 +28,10 @@ spring:
     time-zone: Asia/Ho_Chi_Minh
     date-format: yyyy-MM-dd HH:mm:ss
 
+
 #logging:
 #  level:
-#    com.videomanagement: DEBUG
+#    com.ptit.google.veo3: DEBUG
 #    org.springframework.web: DEBUG
 #    org.hibernate.SQL: DEBUG
 #    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

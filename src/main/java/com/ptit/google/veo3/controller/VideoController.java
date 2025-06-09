@@ -1,16 +1,12 @@
 package com.ptit.google.veo3.controller;
 
-import com.ptit.google.veo3.dto.VideoCreateRequest;
-import com.ptit.google.veo3.entity.Video;
-import com.ptit.google.veo3.service.UserService;
+import com.ptit.google.veo3.dto.VideoRequestDto;
+import com.ptit.google.veo3.dto.VideoResponseDto;
 import com.ptit.google.veo3.service.VideoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,321 +15,372 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST Controller để xử lý các HTTP requests liên quan đến Video
+ * Tuân theo RESTful API best practices
+ *
+ * Base URL: /api/v1/videos
+ *
+ * Endpoints:
+ * - POST   /api/v1/videos          - Tạo mới video
+ * - PUT    /api/v1/videos/{id}     - Cập nhật video
+ * - DELETE /api/v1/videos/{id}     - Xóa video
+ * - GET    /api/v1/videos/{id}     - Lấy chi tiết video
+ * - GET    /api/v1/videos          - Lấy danh sách video (có phân trang)
+ * - GET    /api/v1/videos/all      - Lấy tất cả video (không phân trang)
+ */
 @RestController
-@RequestMapping("/api/videos")
+@RequestMapping("/api/v1/videos")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // Cho phép CORS từ mọi origin (production nên hạn chế)
 public class VideoController {
 
     private final VideoService videoService;
-    private final UserService userService;
 
     /**
-     * Tạo mới video record
-     * POST /api/videos
+     * POST /api/v1/videos - Tạo mới video
+     *
+     * @param requestDto - Dữ liệu video cần tạo (đã được validate)
+     * @return ResponseEntity chứa thông tin video vừa tạo hoặc thông báo lỗi
      */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createVideo(@Valid @RequestBody VideoCreateRequest request) {
-        log.info("Received request to create video for customer: {}", request.getCustomerName());
+    public ResponseEntity<Map<String, Object>> createVideo(@Valid @RequestBody VideoRequestDto requestDto) {
+        log.info("Received request to create video for customer: {}", requestDto.getCustomerName());
 
         try {
-            Video createdVideo = videoService.createVideo(request);
+            VideoResponseDto createdVideo = videoService.createVideo(requestDto);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Video đã được tạo thành công");
-            response.put("data", createdVideo);
+            Map<String, Object> response = createSuccessResponse(
+                    "Video được tạo thành công",
+                    createdVideo
+            );
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
-            log.error("Error creating video", e);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Có lỗi xảy ra khi tạo video: " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            log.error("Error creating video: ", e);
+            return createErrorResponse("Lỗi khi tạo video: " + e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
     /**
-     * Cập nhật video record
-     * PUT /api/videos/{id}
+     * PUT /api/v1/videos/{id} - Cập nhật video
+     *
+     * @param id - ID của video cần cập nhật
+     * @param requestDto - Dữ liệu mới để cập nhật (đã được validate)
+     * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
      */
     @PutMapping("/{id}")
     public ResponseEntity<Map<String, Object>> updateVideo(
             @PathVariable Long id,
-            @Valid @RequestBody VideoCreateRequest request) {
+            @Valid @RequestBody VideoRequestDto requestDto) {
 
         log.info("Received request to update video with ID: {}", id);
 
         try {
-            return videoService.updateVideo(id, request)
-                    .map(updatedVideo -> {
-                        Map<String, Object> response = new HashMap<>();
-                        response.put("success", true);
-                        response.put("message", "Video đã được cập nhật thành công");
-                        response.put("data", updatedVideo);
+            VideoResponseDto updatedVideo = videoService.updateVideo(id, requestDto);
 
-                        return ResponseEntity.ok(response);
-                    })
-                    .orElseGet(() -> {
-                        Map<String, Object> response = new HashMap<>();
-                        response.put("success", false);
-                        response.put("message", "Không tìm thấy video với ID: " + id);
+            Map<String, Object> response = createSuccessResponse(
+                    "Video được cập nhật thành công",
+                    updatedVideo
+            );
 
-                        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-                    });
+            return ResponseEntity.ok(response);
+
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("Video not found with ID: {}", id);
+            return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
         } catch (Exception e) {
-            log.error("Error updating video", e);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Có lỗi xảy ra khi cập nhật video: " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            log.error("Error updating video with ID {}: ", id, e);
+            return createErrorResponse("Lỗi khi cập nhật video: " + e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
     /**
-     * Xóa video record
-     * DELETE /api/videos/{id}
+     * DELETE /api/v1/videos/{id} - Xóa video
+     *
+     * @param id - ID của video cần xóa
+     * @return ResponseEntity chứa thông báo xóa thành công hoặc thông báo lỗi
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, Object>> deleteVideo(@PathVariable Long id) {
         log.info("Received request to delete video with ID: {}", id);
 
-        Map<String, Object> response = new HashMap<>();
+        try {
+            videoService.deleteVideo(id);
 
-        if (videoService.deleteVideo(id)) {
-            response.put("success", true);
-            response.put("message", "Video đã được xóa thành công");
+            Map<String, Object> response = createSuccessResponse(
+                    "Video được xóa thành công",
+                    null
+            );
+
             return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Không tìm thấy video với ID: " + id);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("Video not found with ID: {}", id);
+            return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
+        } catch (Exception e) {
+            log.error("Error deleting video with ID {}: ", id, e);
+            return createErrorResponse("Lỗi khi xóa video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Lấy chi tiết video theo ID
-     * GET /api/videos/{id}
+     * GET /api/v1/videos/{id} - Lấy thông tin chi tiết video
+     *
+     * @param id - ID của video cần lấy thông tin
+     * @return ResponseEntity chứa thông tin video hoặc thông báo lỗi
      */
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getVideoById(@PathVariable Long id) {
         log.info("Received request to get video with ID: {}", id);
 
-        return videoService.getVideoById(id)
-                .map(video -> {
-                    Map<String, Object> response = new HashMap<>();
-                    response.put("success", true);
-                    response.put("data", video);
+        try {
+            VideoResponseDto video = videoService.getVideoById(id);
 
-                    return ResponseEntity.ok(response);
-                })
-                .orElseGet(() -> {
-                    Map<String, Object> response = new HashMap<>();
-                    response.put("success", false);
-                    response.put("message", "Không tìm thấy video với ID: " + id);
+            Map<String, Object> response = createSuccessResponse(
+                    "Lấy thông tin video thành công",
+                    video
+            );
 
-                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-                });
+            return ResponseEntity.ok(response);
+
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("Video not found with ID: {}", id);
+            return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
+        } catch (Exception e) {
+            log.error("Error getting video with ID {}: ", id, e);
+            return createErrorResponse("Lỗi khi lấy thông tin video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
-     * Lấy danh sách tất cả video với phân trang
-     * GET /api/videos?page=0&size=10&sort=createdAt,desc
+     * GET /api/v1/videos - Lấy danh sách tất cả video (có phân trang)
+     *
+     * Query Parameters:
+     * - page: Số trang (mặc định: 0)
+     * - size: Kích thước trang (mặc định: 10)
+     * - sortBy: Trường để sắp xếp (mặc định: createdAt)
+     * - sortDirection: Hướng sắp xếp - asc/desc (mặc định: desc)
+     *
+     * @param page - Số trang cần lấy
+     * @param size - Số lượng record trên mỗi trang
+     * @param sortBy - Trường để sắp xếp
+     * @param sortDirection - Hướng sắp xếp (asc hoặc desc)
+     * @return ResponseEntity chứa danh sách video với thông tin phân trang
      */
     @GetMapping
     public ResponseEntity<Map<String, Object>> getAllVideos(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
+            @RequestParam(defaultValue = "desc") String sortDirection) {
 
-        log.info("Received request to get all videos with pagination: page={}, size={}", page, size);
+        log.info("Received request to get all videos - page: {}, size: {}, sortBy: {}, direction: {}",
+                page, size, sortBy, sortDirection);
 
         try {
-            Sort sort = sortDir.equalsIgnoreCase("desc")
-                    ? Sort.by(sortBy).descending()
-                    : Sort.by(sortBy).ascending();
-
-            Pageable pageable = PageRequest.of(page, size, sort);
-            Page<Video> videoPage = videoService.getAllVideos(pageable);
+            Page<VideoResponseDto> videoPage = videoService.getAllVideos(page, size, sortBy, sortDirection);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
+            response.put("message", "Lấy danh sách video thành công");
             response.put("data", videoPage.getContent());
-            response.put("currentPage", videoPage.getNumber());
-            response.put("totalItems", videoPage.getTotalElements());
-            response.put("totalPages", videoPage.getTotalPages());
-            response.put("pageSize", videoPage.getSize());
-            response.put("hasNext", videoPage.hasNext());
-            response.put("hasPrevious", videoPage.hasPrevious());
+            response.put("pagination", Map.of(
+                    "currentPage", videoPage.getNumber(),
+                    "totalPages", videoPage.getTotalPages(),
+                    "totalElements", videoPage.getTotalElements(),
+                    "pageSize", videoPage.getSize(),
+                    "hasNext", videoPage.hasNext(),
+                    "hasPrevious", videoPage.hasPrevious(),
+                    "isFirst", videoPage.isFirst(),
+                    "isLast", videoPage.isLast()
+            ));
+            response.put("timestamp", System.currentTimeMillis());
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error fetching videos", e);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Có lỗi xảy ra khi tải danh sách video: " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            log.error("Error getting all videos: ", e);
+            return createErrorResponse("Lỗi khi lấy danh sách video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Tìm video theo tên khách hàng
-     * GET /api/videos/search?customerName=Nguyen
+     * GET /api/v1/videos/all - Lấy tất cả video không phân trang
+     * Thích hợp để lấy toàn bộ dữ liệu cho export hoặc các use case khác
+     *
+     * @return ResponseEntity chứa toàn bộ danh sách video
+     */
+    @GetMapping("/all")
+    public ResponseEntity<Map<String, Object>> getAllVideosWithoutPagination() {
+        log.info("Received request to get all videos without pagination");
+
+        try {
+            List<VideoResponseDto> videos = videoService.getAllVideos();
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Lấy danh sách video thành công",
+                    videos
+            );
+            response.put("total", videos.size());
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error getting all videos without pagination: ", e);
+            return createErrorResponse("Lỗi khi lấy danh sách video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/videos/search - Tìm kiếm video theo tên khách hàng
+     *
+     * @param customerName - Tên khách hàng cần tìm (tìm kiếm gần đúng, không phân biệt hoa thường)
+     * @return ResponseEntity chứa danh sách video tìm được
      */
     @GetMapping("/search")
     public ResponseEntity<Map<String, Object>> searchVideosByCustomerName(
-            @RequestParam String customerName) {
+            @RequestParam String customerName
+    ) {
 
         log.info("Received request to search videos by customer name: {}", customerName);
 
         try {
-            List<Video> videos = videoService.findByCustomerName(customerName);
+                List<VideoResponseDto> videos = videoService.searchByCustomerName(customerName);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("data", videos);
-            response.put("totalItems", videos.size());
+            Map<String, Object> response = createSuccessResponse(
+                    String.format("Tìm thấy %d video cho khách hàng '%s'", videos.size(), customerName),
+                    videos
+            );
+            response.put("total", videos.size());
+            response.put("searchTerm", customerName);
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error searching videos by customer name", e);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Có lỗi xảy ra khi tìm kiếm: " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            log.error("Error searching videos by customer name '{}': ", customerName, e);
+            return createErrorResponse("Lỗi khi tìm kiếm video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Lấy video theo user được giao
-     * GET /api/videos/user/{userId}?page=0&size=10
+     * GET /api/v1/videos/status/{status} - Lấy danh sách video theo trạng thái
+     *
+     * @param status - Trạng thái video cần lọc
+     * @return ResponseEntity chứa danh sách video có trạng thái tương ứng
      */
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<Map<String, Object>> getVideosByUser(
-            @PathVariable Long userId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
-        log.info("Received request to get videos by user ID: {}", userId);
+    @GetMapping("/status/{status}")
+    public ResponseEntity<Map<String, Object>> getVideosByStatus(@PathVariable String status) {
+        log.info("Received request to get videos by status: {}", status);
 
         try {
-            Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-            Page<Video> videoPage = videoService.getVideosByUser(userId, pageable);
+            List<VideoResponseDto> videos = videoService.getVideosByStatus(status);
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("data", videoPage.getContent());
-            response.put("currentPage", videoPage.getNumber());
-            response.put("totalItems", videoPage.getTotalElements());
-            response.put("totalPages", videoPage.getTotalPages());
+            Map<String, Object> response = createSuccessResponse(
+                    String.format("Lấy danh sách video có trạng thái '%s' thành công", status),
+                    videos
+            );
+            response.put("total", videos.size());
+            response.put("filterStatus", status);
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error fetching videos by user", e);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Có lỗi xảy ra khi tải video: " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            log.error("Error getting videos by status '{}': ", status, e);
+            return createErrorResponse("Lỗi khi lấy video theo trạng thái: " + e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
     /**
-     * Lấy thống kê video theo trạng thái
-     * GET /api/videos/stats
+     * Helper method để tạo response thành công với format nhất quán
+     *
+     * @param message - Thông báo thành công
+     * @param data - Dữ liệu trả về
+     * @return Map chứa thông tin response
      */
-    @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getVideoStats() {
-        log.info("Received request to get video statistics");
-
-        try {
-            List<Object[]> stats = videoService.getVideoStatsByStatus();
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("data", stats);
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            log.error("Error fetching video statistics", e);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Có lỗi xảy ra khi tải thống kê: " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
+    private Map<String, Object> createSuccessResponse(String message, Object data) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", message);
+        response.put("data", data);
+        response.put("timestamp", System.currentTimeMillis());
+        return response;
     }
 
     /**
-     * Lấy thống kê video theo user
-     * GET /api/videos/stats/user
+     * Helper method để tạo response lỗi với format nhất quán
+     *
+     * @param message - Thông báo lỗi
+     * @param status - HTTP status code
+     * @return ResponseEntity chứa thông tin lỗi
      */
-    @GetMapping("/stats/user")
-    public ResponseEntity<Map<String, Object>> getVideoStatsByUser() {
-        log.info("Received request to get video statistics by user");
-
-        try {
-            List<Object[]> stats = videoService.getVideoStatsByUser();
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("data", stats);
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            log.error("Error fetching video statistics by user", e);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Có lỗi xảy ra khi tải thống kê: " + e.getMessage());
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
+    private ResponseEntity<Map<String, Object>> createErrorResponse(String message, HttpStatus status) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", message);
+        response.put("data", null);
+        response.put("timestamp", System.currentTimeMillis());
+        response.put("status", status.value());
+        response.put("error", status.getReasonPhrase());
+        return ResponseEntity.status(status).body(response);
     }
 
     /**
-     * Lấy danh sách users để gán video
-     * GET /api/videos/available-users
+     * Exception handler để xử lý validation errors từ @Valid annotation
+     * Tự động bắt các lỗi validation và trả về response có cấu trúc
+     *
+     * @param ex - Exception chứa thông tin validation errors
+     * @return ResponseEntity chứa chi tiết các lỗi validation
      */
-    @GetMapping("/available-users")
-    public ResponseEntity<Map<String, Object>> getAvailableUsers() {
-        log.info("Received request to get available users for video assignment");
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidationExceptions(
+            org.springframework.web.bind.MethodArgumentNotValidException ex) {
 
-        try {
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("data", userService.getActiveUsers());
+        log.warn("Validation error occurred: {}", ex.getMessage());
 
-            return ResponseEntity.ok(response);
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+                errors.put(error.getField(), error.getDefaultMessage())
+        );
 
-        } catch (Exception e) {
-            log.error("Error fetching available users", e);
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", "Dữ liệu đầu vào không hợp lệ");
+        response.put("errors", errors);
+        response.put("data", null);
+        response.put("timestamp", System.currentTimeMillis());
+        response.put("status", HttpStatus.BAD_REQUEST.value());
+        response.put("error", "Bad Request");
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", false);
-            response.put("message", "Có lỗi xảy ra khi tải danh sách nhân viên: " + e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
 
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
+    /**
+     * Exception handler để xử lý các runtime exceptions khác
+     *
+     * @param ex - Runtime exception
+     * @return ResponseEntity chứa thông tin lỗi generic
+     */
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
+        log.error("Runtime exception occurred: ", ex);
+        return createErrorResponse("Đã xảy ra lỗi hệ thống: " + ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    /**
+     * Exception handler cho IllegalArgumentException
+     *
+     * @param ex - IllegalArgumentException
+     * @return ResponseEntity chứa thông tin lỗi
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        log.warn("Illegal argument exception: {}", ex.getMessage());
+        return createErrorResponse("Tham số không hợp lệ: " + ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 }
-

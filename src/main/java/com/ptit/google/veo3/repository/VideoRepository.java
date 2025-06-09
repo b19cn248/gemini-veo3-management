@@ -1,7 +1,6 @@
 package com.ptit.google.veo3.repository;
 
-import com.ptit.google.veo3.entity.PaymentStatus;
-import com.ptit.google.veo3.entity.User;
+
 import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.entity.VideoStatus;
 import org.springframework.data.domain.Page;
@@ -14,37 +13,38 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Repository interface để truy cập dữ liệu Video
+ * Mở rộng JpaRepository để có sẵn các method CRUD cơ bản
+ */
 @Repository
 public interface VideoRepository extends JpaRepository<Video, Long> {
 
-    // Tìm theo tên khách hàng
+    /**
+     * Tìm video theo tên khách hàng (không phân biệt hoa thường)
+     */
     List<Video> findByCustomerNameContainingIgnoreCase(String customerName);
 
-    // Tìm theo trạng thái
-    Page<Video> findByStatus(VideoStatus status, Pageable pageable);
+    /**
+     * Tìm video theo trạng thái
+     */
+    List<Video> findByStatus(VideoStatus status);
 
-    // Tìm theo trạng thái thanh toán
-    Page<Video> findByPaymentStatus(PaymentStatus paymentStatus, Pageable pageable);
+    /**
+     * Tìm video được tạo trong khoảng thời gian
+     */
+    @Query("SELECT v FROM Video v WHERE v.createdAt BETWEEN :startDate AND :endDate")
+    Page<Video> findByCreatedAtBetween(@Param("startDate") LocalDateTime startDate,
+                                       @Param("endDate") LocalDateTime endDate,
+                                       Pageable pageable);
 
-    // Tìm theo user được giao
-    List<Video> findByAssignedUser(User assignedUser);
+    /**
+     * Tìm video theo nhân viên được giao
+     */
+    List<Video> findByAssignedStaffContainingIgnoreCase(String assignedStaff);
 
-    // Tìm theo user được giao với phân trang
-    Page<Video> findByAssignedUser(User assignedUser, Pageable pageable);
-
-    // Tìm các video cần giao trong khoảng thời gian
-    @Query("SELECT v FROM Video v WHERE v.deliveryTime BETWEEN :startDate AND :endDate")
-    List<Video> findByDeliveryTimeBetween(@Param("startDate") LocalDateTime startDate,
-                                          @Param("endDate") LocalDateTime endDate);
-
-    // Thống kê số lượng video theo trạng thái
-    @Query("SELECT v.status, COUNT(v) FROM Video v GROUP BY v.status")
-    List<Object[]> countVideosByStatus();
-
-    // Thống kê số lượng video theo user
-    @Query("SELECT u.fullName, COUNT(v) FROM Video v JOIN v.assignedUser u GROUP BY u.id, u.fullName ORDER BY COUNT(v) DESC")
-    List<Object[]> countVideosByUser();
-
-    // Tìm video chưa có ai nhận
-    List<Video> findByAssignedUserIsNull();
+    /**
+     * Đếm số video theo trạng thái
+     */
+    long countByStatus(VideoStatus status);
 }
