@@ -23,7 +23,7 @@ public class VideoResponseDto {
     private String customerName;
     private String videoContent;
     private String imageUrl;
-    private String videoDuration;
+    private Integer videoDuration; // Thời lượng video tính theo giây
     private LocalDateTime deliveryTime;
     private String assignedStaff;
     private VideoStatus status;
@@ -38,4 +38,20 @@ public class VideoResponseDto {
     private PaymentStatus paymentStatus;
     private LocalDateTime paymentDate;
     private BigDecimal orderValue;
+
+    /**
+     * Helper method để format thời lượng video thành định dạng HH:mm:ss
+     * @return String thời lượng video theo format HH:mm:ss
+     */
+    public String getFormattedVideoDuration() {
+        if (videoDuration == null || videoDuration <= 0) {
+            return "00:00:00";
+        }
+
+        int hours = videoDuration / 3600;
+        int minutes = (videoDuration % 3600) / 60;
+        int seconds = videoDuration % 60;
+
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
 }

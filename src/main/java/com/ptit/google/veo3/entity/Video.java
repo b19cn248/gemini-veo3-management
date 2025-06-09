@@ -36,8 +36,8 @@ public class Video {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
-    @Column(name = "video_duration", length = 20)
-    private String videoDuration;
+    @Column(name = "video_duration")
+    private Integer videoDuration; // Thời lượng video tính theo giây
 
     @Column(name = "delivery_time")
     private LocalDateTime deliveryTime;

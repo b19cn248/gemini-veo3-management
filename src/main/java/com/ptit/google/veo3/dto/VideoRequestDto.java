@@ -31,9 +31,9 @@ public class VideoRequestDto {
     @Size(max = 500, message = "URL hình ảnh không được vượt quá 500 ký tự")
     private String imageUrl;
 
-    @Pattern(regexp = "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$",
-            message = "Thời lượng video phải có định dạng HH:mm:ss")
-    private String videoDuration;
+    @Min(value = 1, message = "Thời lượng video phải lớn hơn 0 giây")
+    @Max(value = 86400, message = "Thời lượng video không được vượt quá 24 giờ (86400 giây)")
+    private Integer videoDuration; // Thời lượng video tính theo giây
 
     @Future(message = "Thời gian giao hàng phải là thời gian trong tương lai")
     private LocalDateTime deliveryTime;

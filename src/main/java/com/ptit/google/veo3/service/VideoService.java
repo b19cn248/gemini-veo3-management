@@ -65,6 +65,64 @@ public class VideoService {
     }
 
     /**
+     * Cập nhật nhân viên được giao cho video
+     */
+    @Transactional
+    public VideoResponseDto updateAssignedStaff(Long id, String assignedStaff) {
+        log.info("Updating assigned staff for video ID: {} to staff: {}", id, assignedStaff);
+
+        Video existingVideo = findVideoByIdOrThrow(id);
+
+        // Validate assigned staff
+        if (assignedStaff != null && assignedStaff.trim().length() > 255) {
+            throw new IllegalArgumentException("Tên nhân viên không được vượt quá 255 ký tự");
+        }
+
+        existingVideo.setAssignedStaff(assignedStaff != null ? assignedStaff.trim() : null);
+        Video updatedVideo = videoRepository.save(existingVideo);
+
+        log.info("Assigned staff updated successfully for video ID: {}", id);
+        return mapToResponseDto(updatedVideo);
+    }
+
+    /**
+     * Cập nhật trạng thái video
+     */
+    @Transactional
+    public VideoResponseDto updateVideoStatus(Long id, String statusString) {
+        log.info("Updating status for video ID: {} to status: {}", id, statusString);
+
+        Video existingVideo = findVideoByIdOrThrow(id);
+
+        // Validate và convert status string to enum
+        if (!StringUtils.hasText(statusString)) {
+            throw new IllegalArgumentException("Trạng thái không được để trống");
+        }
+
+        VideoStatus status;
+        try {
+            status = VideoStatus.valueOf(statusString.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid video status: '{}'", statusString);
+            throw new IllegalArgumentException("Trạng thái video không hợp lệ: " + statusString +
+                    ". Các trạng thái hợp lệ: CHUA_AI_NHAN, DANG_LAM, DA_XONG, DANG_SUA, DA_SUA_XONG");
+        }
+
+        existingVideo.setStatus(status);
+
+        // Tự động set completedTime khi status = DA_XONG hoặc DA_SUA_XONG
+        if ((status == VideoStatus.DA_XONG || status == VideoStatus.DA_SUA_XONG)
+                && existingVideo.getCompletedTime() == null) {
+            existingVideo.setCompletedTime(LocalDateTime.now());
+        }
+
+        Video updatedVideo = videoRepository.save(existingVideo);
+
+        log.info("Video status updated successfully for video ID: {} to status: {}", id, status);
+        return mapToResponseDto(updatedVideo);
+    }
+
+    /**
      * Xóa video theo ID
      */
     @Transactional
@@ -119,9 +177,6 @@ public class VideoService {
 
     /**
      * Tìm kiếm video theo tên khách hàng (không phân biệt hoa thường)
-     *
-     * @param customerName - Tên khách hàng cần tìm (có thể là một phần của tên)
-     * @return List<VideoResponseDto> - Danh sách video tìm được
      */
     public List<VideoResponseDto> searchByCustomerName(String customerName) {
         log.info("Searching videos by customer name: '{}'", customerName);
@@ -131,7 +186,6 @@ public class VideoService {
             return List.of();
         }
 
-        // Trim và validate input
         String trimmedName = customerName.trim();
         if (trimmedName.length() < 2) {
             log.warn("Customer name too short (less than 2 characters): '{}'", trimmedName);
@@ -149,9 +203,6 @@ public class VideoService {
 
     /**
      * Lấy danh sách video theo trạng thái
-     *
-     * @param statusString - Trạng thái video dưới dạng string
-     * @return List<VideoResponseDto> - Danh sách video có trạng thái tương ứng
      */
     public List<VideoResponseDto> getVideosByStatus(String statusString) {
         log.info("Fetching videos by status: '{}'", statusString);
@@ -162,7 +213,6 @@ public class VideoService {
 
         VideoStatus status;
         try {
-            // Chuyển đổi string thành enum, không phân biệt hoa thường
             status = VideoStatus.valueOf(statusString.toUpperCase());
         } catch (IllegalArgumentException e) {
             log.warn("Invalid video status: '{}'", statusString);
@@ -181,9 +231,6 @@ public class VideoService {
 
     /**
      * Tìm kiếm video theo nhân viên được giao
-     *
-     * @param assignedStaff - Tên nhân viên được giao (có thể là một phần của tên)
-     * @return List<VideoResponseDto> - Danh sách video được giao cho nhân viên
      */
     public List<VideoResponseDto> searchByAssignedStaff(String assignedStaff) {
         log.info("Searching videos by assigned staff: '{}'", assignedStaff);
@@ -210,8 +257,6 @@ public class VideoService {
 
     /**
      * Lấy thống kê số lượng video theo từng trạng thái
-     *
-     * @return Map<VideoStatus, Long> - Map chứa số lượng video cho mỗi trạng thái
      */
     public Map<VideoStatus, Long> getVideoStatusStatistics() {
         log.info("Fetching video status statistics");
@@ -230,12 +275,6 @@ public class VideoService {
 
     /**
      * Tìm kiếm video trong khoảng thời gian tạo
-     *
-     * @param startDate - Ngày bắt đầu
-     * @param endDate - Ngày kết thúc
-     * @param page - Số trang
-     * @param size - Kích thước trang
-     * @return Page<VideoResponseDto> - Danh sách video trong khoảng thời gian
      */
     public Page<VideoResponseDto> getVideosByDateRange(LocalDateTime startDate, LocalDateTime endDate,
                                                        int page, int size) {
@@ -259,13 +298,6 @@ public class VideoService {
 
     /**
      * Tìm kiếm video nâng cao với nhiều điều kiện
-     *
-     * @param customerName - Tên khách hàng (optional)
-     * @param status - Trạng thái video (optional)
-     * @param assignedStaff - Nhân viên được giao (optional)
-     * @param startDate - Ngày tạo từ (optional)
-     * @param endDate - Ngày tạo đến (optional)
-     * @return List<VideoResponseDto> - Danh sách video thỏa mãn điều kiện
      */
     public List<VideoResponseDto> advancedSearch(String customerName, VideoStatus status,
                                                  String assignedStaff, LocalDateTime startDate,
@@ -273,10 +305,8 @@ public class VideoService {
         log.info("Performing advanced search with filters - customer: '{}', status: '{}', staff: '{}', date range: {} to {}",
                 customerName, status, assignedStaff, startDate, endDate);
 
-        // Bắt đầu với tất cả video
         List<Video> videos = videoRepository.findAll();
 
-        // Áp dụng các filter theo thứ tự
         if (StringUtils.hasText(customerName)) {
             videos = videos.stream()
                     .filter(video -> video.getCustomerName() != null &&
@@ -353,7 +383,6 @@ public class VideoService {
         Optional.ofNullable(requestDto.getPaymentStatus())
                 .ifPresent(status -> {
                     existingVideo.setPaymentStatus(status);
-                    // Tự động set paymentDate khi trạng thái là "Đã thanh toán"
                     if (status == PaymentStatus.DA_THANH_TOAN && existingVideo.getPaymentDate() == null) {
                         existingVideo.setPaymentDate(LocalDateTime.now());
                     }

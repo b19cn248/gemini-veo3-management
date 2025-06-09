@@ -22,12 +22,16 @@ import java.util.Map;
  * Base URL: /api/v1/videos
  *
  * Endpoints:
- * - POST   /api/v1/videos          - Tạo mới video
- * - PUT    /api/v1/videos/{id}     - Cập nhật video
- * - DELETE /api/v1/videos/{id}     - Xóa video
- * - GET    /api/v1/videos/{id}     - Lấy chi tiết video
- * - GET    /api/v1/videos          - Lấy danh sách video (có phân trang)
- * - GET    /api/v1/videos/all      - Lấy tất cả video (không phân trang)
+ * - POST   /api/v1/videos                    - Tạo mới video
+ * - PUT    /api/v1/videos/{id}               - Cập nhật video
+ * - DELETE /api/v1/videos/{id}               - Xóa video
+ * - GET    /api/v1/videos/{id}               - Lấy chi tiết video
+ * - GET    /api/v1/videos                    - Lấy danh sách video (có phân trang)
+ * - GET    /api/v1/videos/all                - Lấy tất cả video (không phân trang)
+ * - GET    /api/v1/videos/search             - Tìm kiếm video theo tên khách hàng
+ * - GET    /api/v1/videos/status/{status}    - Lấy video theo trạng thái
+ * - PATCH  /api/v1/videos/{id}/assigned-staff - Cập nhật nhân viên được giao
+ * - PATCH  /api/v1/videos/{id}/status        - Cập nhật trạng thái video
  */
 @RestController
 @RequestMapping("/api/v1/videos")
@@ -95,6 +99,82 @@ public class VideoController {
         } catch (Exception e) {
             log.error("Error updating video with ID {}: ", id, e);
             return createErrorResponse("Lỗi khi cập nhật video: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /**
+     * PATCH /api/v1/videos/{id}/assigned-staff - Cập nhật nhân viên được giao
+     *
+     * @param id - ID của video cần cập nhật
+     * @param assignedStaff - Tên nhân viên được giao mới
+     * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
+     */
+    @PatchMapping("/{id}/assigned-staff")
+    public ResponseEntity<Map<String, Object>> updateAssignedStaff(
+            @PathVariable Long id,
+            @RequestParam String assignedStaff) {
+
+        log.info("Received request to update assigned staff for video ID: {} to staff: {}", id, assignedStaff);
+
+        try {
+            VideoResponseDto updatedVideo = videoService.updateAssignedStaff(id, assignedStaff);
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Nhân viên được giao đã được cập nhật thành công",
+                    updatedVideo
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("Video not found with ID: {}", id);
+            return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid assigned staff for video ID {}: {}", id, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (Exception e) {
+            log.error("Error updating assigned staff for video ID {}: ", id, e);
+            return createErrorResponse("Lỗi khi cập nhật nhân viên được giao: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * PATCH /api/v1/videos/{id}/status - Cập nhật trạng thái video
+     *
+     * @param id - ID của video cần cập nhật
+     * @param status - Trạng thái mới của video
+     * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
+     */
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<Map<String, Object>> updateVideoStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+
+        log.info("Received request to update status for video ID: {} to status: {}", id, status);
+
+        try {
+            VideoResponseDto updatedVideo = videoService.updateVideoStatus(id, status);
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Trạng thái video đã được cập nhật thành công",
+                    updatedVideo
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("Video not found with ID: {}", id);
+            return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid status for video ID {}: {}", id, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (Exception e) {
+            log.error("Error updating status for video ID {}: ", id, e);
+            return createErrorResponse("Lỗi khi cập nhật trạng thái video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -251,7 +331,7 @@ public class VideoController {
         log.info("Received request to search videos by customer name: {}", customerName);
 
         try {
-                List<VideoResponseDto> videos = videoService.searchByCustomerName(customerName);
+            List<VideoResponseDto> videos = videoService.searchByCustomerName(customerName);
 
             Map<String, Object> response = createSuccessResponse(
                     String.format("Tìm thấy %d video cho khách hàng '%s'", videos.size(), customerName),
