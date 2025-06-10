@@ -2,6 +2,7 @@ package com.ptit.google.veo3.service;
 
 import com.ptit.google.veo3.dto.VideoRequestDto;
 import com.ptit.google.veo3.dto.VideoResponseDto;
+import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.entity.VideoStatus;
@@ -357,6 +358,60 @@ public class VideoService {
         }
 
         log.info("Advanced search returned {} videos", videos.size());
+
+        return videos.stream()
+                .map(this::mapToResponseDto)
+                .toList();
+    }
+
+    /**
+     * Lọc video theo nhân viên, trạng thái giao hàng và trạng thái thanh toán
+     */
+    public List<VideoResponseDto> filterVideos(String assignedStaff, String deliveryStatus, String paymentStatus) {
+        log.info("Filtering videos - staff: '{}', delivery status: '{}', payment status: '{}'",
+                assignedStaff, deliveryStatus, paymentStatus);
+
+        List<Video> videos = videoRepository.findAll();
+
+        // Lọc theo nhân viên được giao
+        if (StringUtils.hasText(assignedStaff)) {
+            String trimmedStaff = assignedStaff.trim();
+            if (trimmedStaff.length() < 2) {
+                throw new IllegalArgumentException("Tên nhân viên phải có ít nhất 2 ký tự");
+            }
+            videos = videos.stream()
+                    .filter(video -> video.getAssignedStaff() != null &&
+                            video.getAssignedStaff().toLowerCase().contains(trimmedStaff.toLowerCase()))
+                    .toList();
+        }
+
+        // Lọc theo trạng thái giao hàng
+        if (StringUtils.hasText(deliveryStatus)) {
+            try {
+                DeliveryStatus status = DeliveryStatus.valueOf(deliveryStatus.toUpperCase());
+                videos = videos.stream()
+                        .filter(video -> video.getDeliveryStatus() == status)
+                        .toList();
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Trạng thái giao hàng không hợp lệ: " + deliveryStatus +
+                        ". Các trạng thái hợp lệ: CHUA_GUI, DANG_GUI, DA_GUI");
+            }
+        }
+
+        // Lọc theo trạng thái thanh toán
+        if (StringUtils.hasText(paymentStatus)) {
+            try {
+                PaymentStatus status = PaymentStatus.valueOf(paymentStatus.toUpperCase());
+                videos = videos.stream()
+                        .filter(video -> video.getPaymentStatus() == status)
+                        .toList();
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Trạng thái thanh toán không hợp lệ: " + paymentStatus +
+                        ". Các trạng thái hợp lệ: CHUA_THANH_TOAN, DA_THANH_TOAN");
+            }
+        }
+
+        log.info("Filter returned {} videos", videos.size());
 
         return videos.stream()
                 .map(this::mapToResponseDto)

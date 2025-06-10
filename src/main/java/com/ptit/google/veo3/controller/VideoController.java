@@ -416,6 +416,54 @@ public class VideoController {
     }
 
     /**
+     * GET /api/v1/videos/filter - Lọc video theo nhân viên, trạng thái giao hàng và trạng thái thanh toán
+     *
+     * Query Parameters:
+     * - assignedStaff: Tên nhân viên được giao (optional)
+     * - deliveryStatus: Trạng thái giao hàng (optional)
+     * - paymentStatus: Trạng thái thanh toán (optional)
+     *
+     * @param assignedStaff - Tên nhân viên được giao
+     * @param deliveryStatus - Trạng thái giao hàng
+     * @param paymentStatus - Trạng thái thanh toán
+     * @return ResponseEntity chứa danh sách video đã được lọc
+     */
+    @GetMapping("/filter")
+    public ResponseEntity<Map<String, Object>> filterVideos(
+            @RequestParam(required = false) String assignedStaff,
+            @RequestParam(required = false) String deliveryStatus,
+            @RequestParam(required = false) String paymentStatus) {
+
+        log.info("Received request to filter videos - staff: {}, delivery status: {}, payment status: {}",
+                assignedStaff, deliveryStatus, paymentStatus);
+
+        try {
+            List<VideoResponseDto> videos = videoService.filterVideos(assignedStaff, deliveryStatus, paymentStatus);
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Lọc video thành công",
+                    videos
+            );
+            response.put("total", videos.size());
+            response.put("filters", Map.of(
+                    "assignedStaff", assignedStaff,
+                    "deliveryStatus", deliveryStatus,
+                    "paymentStatus", paymentStatus
+            ));
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid filter parameters: {}", e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (Exception e) {
+            log.error("Error filtering videos: ", e);
+            return createErrorResponse("Lỗi khi lọc video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
      * Helper method để tạo response thành công với format nhất quán
      *
      * @param message - Thông báo thành công
