@@ -4,6 +4,11 @@ server:
     context-path: /
 
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: https://keycloak.openlearnhub.io.vn/realms/OpenLearnHub/protocol/openid-connect/certs
   application:
     name: video-management-api
 
@@ -12,6 +17,7 @@ spring:
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
+
 
   jpa:
     hibernate:
@@ -28,6 +34,8 @@ spring:
     time-zone: Asia/Ho_Chi_Minh
     date-format: yyyy-MM-dd HH:mm:ss
 
+policy:
+  enforce: "/policy-enforcer.json"
 
 #logging:
 #  level:

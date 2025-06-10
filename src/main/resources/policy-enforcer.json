@@ -1,0 +1,44 @@
+{
+  "realm": "OpenLearnHub",
+  "auth-server-url": "https://keycloak.openlearnhub.io.vn/",
+  "resource": "video-veo3-be",
+  "credentials": {
+    "secret": "axIHzmFLScosYkJVgLx5KeuvLd5Jre0o"
+  },
+  "enforcement-mode": "PERMISSIVE",
+  "http-method-as-scope": "true",
+  "paths": [
+    {
+      "path": "/swagger-ui/*",
+      "enforcement-mode": "DISABLED"
+    },
+    {
+      "path": "/v3/api-docs/*",
+      "enforcement-mode": "DISABLED"
+    },
+    {
+      "path": "/api/v1/scopes",
+      "enforcement-mode": "DISABLED"
+    },
+    {
+      "path": "/api/v1/articles/rss-feed",
+      "enforcement-mode": "DISABLED"
+    },
+    {
+      "path": "/api/v1/build/*",
+      "enforcement-mode": "DISABLED"
+    },
+    {
+      "path": "/api/v1/articles/check-article-exists",
+      "enforcement-mode": "DISABLED"
+    },
+    {
+      "path": "/api/v1/users/*",
+      "enforcement-mode": "DISABLED"
+    },
+    {
+      "path": "/api/v1/gemini/generate",
+      "enforcement-mode": "DISABLED"
+    }
+  ]
+}
