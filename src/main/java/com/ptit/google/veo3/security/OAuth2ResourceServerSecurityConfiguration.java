@@ -18,6 +18,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -42,7 +44,7 @@ public class OAuth2ResourceServerSecurityConfiguration {
                                 "/api/v1/articles/check-article-exists",
                                 "/api/v1/n8n/**",
                                 "/api/v1/gemini/generate"
-                                ).permitAll()
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .cors(Customizer.withDefaults())
@@ -59,13 +61,27 @@ public class OAuth2ResourceServerSecurityConfiguration {
     public CorsFilter corsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3006",
+        config.setAllowedOrigins(List.of("http://localhost:3006","http://localhost:3009","http://localhost:3007",
                 "https://video.management.openlearnhub.io.vn/",
                 "https://smart.feeds.openlearnhub.io.vn/"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Cache-Control", "Content-Type", "X-Requested-With"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        source.registerCorsConfiguration("/**", config);
+        config.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Cache-Control",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers",
+                "db",                           // Custom header cho database selection
+                "X-Forwarded-For",
+                "X-Forwarded-Proto",
+                "X-Forwarded-Host"
+        ));
         config.setAllowCredentials(true);
+        source.registerCorsConfiguration("/**", config);
         return new CorsFilter(source);
     }
 

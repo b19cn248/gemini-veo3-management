@@ -9,7 +9,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: video_management
-      MYSQL_USER: video_user
+      MYSQL_USER: video_management
       MYSQL_PASSWORD: video_password
       MYSQL_ROOT_HOST: '%'
     ports:
@@ -46,18 +46,40 @@ services:
     ports:
       - "8089:8080"
     environment:
-      # Database configuration
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/video_management?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      # HikariCP configuration - FIXED for auto-commit issues
+      SPRING_DATASOURCE_HIKARI_AUTO_COMMIT: false
+      SPRING_DATASOURCE_HIKARI_TRANSACTION_ISOLATION: TRANSACTION_READ_COMMITTED
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 15
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 3
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 30000
+      SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: 600000
+      SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: 1800000
+      SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 60000
 
-      # JPA/Hibernate configuration
+      # JPA/Hibernate configuration - FIXED for multi-tenant
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: false
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
       SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: true
+      SPRING_JPA_PROPERTIES_HIBERNATE_USE_SQL_COMMENTS: true
+      SPRING_JPA_PROPERTIES_HIBERNATE_JDBC_BATCH_SIZE: 20
+      SPRING_JPA_PROPERTIES_HIBERNATE_ORDER_INSERTS: true
+      SPRING_JPA_PROPERTIES_HIBERNATE_ORDER_UPDATES: true
       SPRING_JPA_OPEN_IN_VIEW: false
+
+      # Spring Transaction configuration
+      SPRING_TRANSACTION_DEFAULT_TIMEOUT: 30
+      SPRING_TRANSACTION_ROLLBACK_ON_COMMIT_FAILURE: true
+
+      # Multi-tenant configuration
+      MULTITENANT_DEFAULT_TENANT: video_management
+      MULTITENANT_DATASOURCE_URL_PATTERN: "jdbc:mysql://mysql:3306/%s?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
+      MULTITENANT_DATASOURCE_MAXIMUM_POOL_SIZE: 10
+      MULTITENANT_DATASOURCE_MINIMUM_IDLE: 2
+      MULTITENANT_DATASOURCE_CONNECTION_TIMEOUT: 30000
+      MULTITENANT_DATASOURCE_IDLE_TIMEOUT: 600000
+      MULTITENANT_DATASOURCE_MAX_LIFETIME: 1800000
+      MULTITENANT_DATASOURCE_LEAK_DETECTION_THRESHOLD: 60000
 
       # Application configuration
       SERVER_PORT: 8080

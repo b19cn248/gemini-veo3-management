@@ -2,6 +2,7 @@ package com.ptit.google.veo3.controller;
 
 import com.ptit.google.veo3.dto.VideoRequestDto;
 import com.ptit.google.veo3.dto.VideoResponseDto;
+import com.ptit.google.veo3.multitenant.TenantContext;
 import com.ptit.google.veo3.service.VideoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,8 @@ import java.util.Map;
 /**
  * REST Controller để xử lý các HTTP requests liên quan đến Video
  * Tuân theo RESTful API best practices
+ *
+ * Updated để support multi-tenant với tenant context logging
  * <p>
  * Base URL: /api/v1/videos
  * <p>
@@ -52,7 +55,8 @@ public class VideoController {
      */
     @PostMapping
     public ResponseEntity<Map<String, Object>> createVideo(@Valid @RequestBody VideoRequestDto requestDto) {
-        log.info("Received request to create video for customer: {}", requestDto.getCustomerName());
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to create video for customer: {}", tenantId, requestDto.getCustomerName());
 
         try {
 
@@ -64,7 +68,6 @@ public class VideoController {
                 requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
             }
 
-
             VideoResponseDto createdVideo = videoService.createVideo(requestDto);
 
             Map<String, Object> response = createSuccessResponse(
@@ -72,10 +75,11 @@ public class VideoController {
                     createdVideo
             );
 
+            log.info("[Tenant: {}] Video created successfully with ID: {}", tenantId, createdVideo.getId());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
 
         } catch (Exception e) {
-            log.error("Error creating video: ", e);
+            log.error("[Tenant: {}] Error creating video: ", tenantId, e);
             return createErrorResponse("Lỗi khi tạo video: " + e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
@@ -92,6 +96,9 @@ public class VideoController {
             @PathVariable Long id,
             @Valid @RequestBody VideoRequestDto requestDto) {
 
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to update video with ID: {}", tenantId, id);
+
         Integer time = requestDto.getVideoDuration();
 
         if (time == 8) {
@@ -99,8 +106,6 @@ public class VideoController {
         } else {
             requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
         }
-
-        log.info("Received request to update video with ID: {}", id);
 
         try {
             VideoResponseDto updatedVideo = videoService.updateVideo(id, requestDto);
@@ -110,14 +115,15 @@ public class VideoController {
                     updatedVideo
             );
 
+            log.info("[Tenant: {}] Video updated successfully with ID: {}", tenantId, id);
             return ResponseEntity.ok(response);
 
         } catch (VideoService.VideoNotFoundException e) {
-            log.warn("Video not found with ID: {}", id);
+            log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
             return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
 
         } catch (Exception e) {
-            log.error("Error updating video with ID {}: ", id, e);
+            log.error("[Tenant: {}] Error updating video with ID {}: ", tenantId, id, e);
             return createErrorResponse("Lỗi khi cập nhật video: " + e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
@@ -134,7 +140,9 @@ public class VideoController {
             @PathVariable Long id,
             @RequestParam String assignedStaff) {
 
-        log.info("Received request to update assigned staff for video ID: {} to staff: {}", id, assignedStaff);
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to update assigned staff for video ID: {} to staff: {}",
+                tenantId, id, assignedStaff);
 
         try {
             VideoResponseDto updatedVideo = videoService.updateAssignedStaff(id, assignedStaff);
@@ -147,15 +155,15 @@ public class VideoController {
             return ResponseEntity.ok(response);
 
         } catch (VideoService.VideoNotFoundException e) {
-            log.warn("Video not found with ID: {}", id);
+            log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
             return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
 
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid assigned staff for video ID {}: {}", id, e.getMessage());
+            log.warn("[Tenant: {}] Invalid assigned staff for video ID {}: {}", tenantId, id, e.getMessage());
             return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
 
         } catch (Exception e) {
-            log.error("Error updating assigned staff for video ID {}: ", id, e);
+            log.error("[Tenant: {}] Error updating assigned staff for video ID {}: ", tenantId, id, e);
             return createErrorResponse("Lỗi khi cập nhật nhân viên được giao: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -172,7 +180,9 @@ public class VideoController {
             @PathVariable Long id,
             @RequestParam String status) {
 
-        log.info("Received request to update status for video ID: {} to status: {}", id, status);
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to update status for video ID: {} to status: {}",
+                tenantId, id, status);
 
         try {
             VideoResponseDto updatedVideo = videoService.updateVideoStatus(id, status);
@@ -185,15 +195,15 @@ public class VideoController {
             return ResponseEntity.ok(response);
 
         } catch (VideoService.VideoNotFoundException e) {
-            log.warn("Video not found with ID: {}", id);
+            log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
             return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
 
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid status for video ID {}: {}", id, e.getMessage());
+            log.warn("[Tenant: {}] Invalid status for video ID {}: {}", tenantId, id, e.getMessage());
             return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
 
         } catch (Exception e) {
-            log.error("Error updating status for video ID {}: ", id, e);
+            log.error("[Tenant: {}] Error updating status for video ID {}: ", tenantId, id, e);
             return createErrorResponse("Lỗi khi cập nhật trạng thái video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -210,7 +220,9 @@ public class VideoController {
             @PathVariable Long id,
             @RequestParam String videoUrl) {
 
-        log.info("Received request to update video URL for video ID: {} to URL: {}", id, videoUrl);
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to update video URL for video ID: {} to URL: {}",
+                tenantId, id, videoUrl);
 
         try {
             VideoResponseDto updatedVideo = videoService.updateVideoUrl(id, videoUrl);
@@ -223,15 +235,15 @@ public class VideoController {
             return ResponseEntity.ok(response);
 
         } catch (VideoService.VideoNotFoundException e) {
-            log.warn("Video not found with ID: {}", id);
+            log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
             return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
 
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid video URL for video ID {}: {}", id, e.getMessage());
+            log.warn("[Tenant: {}] Invalid video URL for video ID {}: {}", tenantId, id, e.getMessage());
             return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
 
         } catch (Exception e) {
-            log.error("Error updating video URL for video ID {}: ", id, e);
+            log.error("[Tenant: {}] Error updating video URL for video ID {}: ", tenantId, id, e);
             return createErrorResponse("Lỗi khi cập nhật link video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -244,7 +256,8 @@ public class VideoController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, Object>> deleteVideo(@PathVariable Long id) {
-        log.info("Received request to delete video with ID: {}", id);
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to delete video with ID: {}", tenantId, id);
 
         try {
             videoService.deleteVideo(id);
@@ -257,11 +270,11 @@ public class VideoController {
             return ResponseEntity.ok(response);
 
         } catch (VideoService.VideoNotFoundException e) {
-            log.warn("Video not found with ID: {}", id);
+            log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
             return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
 
         } catch (Exception e) {
-            log.error("Error deleting video with ID {}: ", id, e);
+            log.error("[Tenant: {}] Error deleting video with ID {}: ", tenantId, id, e);
             return createErrorResponse("Lỗi khi xóa video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -274,7 +287,8 @@ public class VideoController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getVideoById(@PathVariable Long id) {
-        log.info("Received request to get video with ID: {}", id);
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get video with ID: {}", tenantId, id);
 
         try {
             VideoResponseDto video = videoService.getVideoById(id);
@@ -287,11 +301,11 @@ public class VideoController {
             return ResponseEntity.ok(response);
 
         } catch (VideoService.VideoNotFoundException e) {
-            log.warn("Video not found with ID: {}", id);
+            log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
             return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
 
         } catch (Exception e) {
-            log.error("Error getting video with ID {}: ", id, e);
+            log.error("[Tenant: {}] Error getting video with ID {}: ", tenantId, id, e);
             return createErrorResponse("Lỗi khi lấy thông tin video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -318,8 +332,9 @@ public class VideoController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDirection) {
 
-        log.info("Received request to get all videos - page: {}, size: {}, sortBy: {}, direction: {}",
-                page, size, sortBy, sortDirection);
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get all videos - page: {}, size: {}, sortBy: {}, direction: {}",
+                tenantId, page, size, sortBy, sortDirection);
 
         try {
             Page<VideoResponseDto> videoPage = videoService.getAllVideos(page, size, sortBy, sortDirection);
@@ -338,12 +353,13 @@ public class VideoController {
                     "isFirst", videoPage.isFirst(),
                     "isLast", videoPage.isLast()
             ));
+            response.put("tenantId", tenantId); // Thêm thông tin tenant vào response
             response.put("timestamp", System.currentTimeMillis());
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error getting all videos: ", e);
+            log.error("[Tenant: {}] Error getting all videos: ", tenantId, e);
             return createErrorResponse("Lỗi khi lấy danh sách video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -356,7 +372,8 @@ public class VideoController {
      */
     @GetMapping("/all")
     public ResponseEntity<Map<String, Object>> getAllVideosWithoutPagination() {
-        log.info("Received request to get all videos without pagination");
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get all videos without pagination", tenantId);
 
         try {
             List<VideoResponseDto> videos = videoService.getAllVideos();
@@ -366,11 +383,12 @@ public class VideoController {
                     videos
             );
             response.put("total", videos.size());
+            response.put("tenantId", tenantId);
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error getting all videos without pagination: ", e);
+            log.error("[Tenant: {}] Error getting all videos without pagination: ", tenantId, e);
             return createErrorResponse("Lỗi khi lấy danh sách video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -385,8 +403,8 @@ public class VideoController {
     public ResponseEntity<Map<String, Object>> searchVideosByCustomerName(
             @RequestParam String customerName
     ) {
-
-        log.info("Received request to search videos by customer name: {}", customerName);
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to search videos by customer name: {}", tenantId, customerName);
 
         try {
             List<VideoResponseDto> videos = videoService.searchByCustomerName(customerName);
@@ -397,11 +415,12 @@ public class VideoController {
             );
             response.put("total", videos.size());
             response.put("searchTerm", customerName);
+            response.put("tenantId", tenantId);
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error searching videos by customer name '{}': ", customerName, e);
+            log.error("[Tenant: {}] Error searching videos by customer name '{}': ", tenantId, customerName, e);
             return createErrorResponse("Lỗi khi tìm kiếm video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -414,7 +433,8 @@ public class VideoController {
      */
     @GetMapping("/status/{status}")
     public ResponseEntity<Map<String, Object>> getVideosByStatus(@PathVariable String status) {
-        log.info("Received request to get videos by status: {}", status);
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get videos by status: {}", tenantId, status);
 
         try {
             List<VideoResponseDto> videos = videoService.getVideosByStatus(status);
@@ -425,11 +445,12 @@ public class VideoController {
             );
             response.put("total", videos.size());
             response.put("filterStatus", status);
+            response.put("tenantId", tenantId);
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error getting videos by status '{}': ", status, e);
+            log.error("[Tenant: {}] Error getting videos by status '{}': ", tenantId, status, e);
             return createErrorResponse("Lỗi khi lấy video theo trạng thái: " + e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
@@ -453,8 +474,9 @@ public class VideoController {
             @RequestParam(required = false) String deliveryStatus,
             @RequestParam(required = false) String paymentStatus) {
 
-        log.info("Received request to filter videos - staff: {}, delivery status: {}, payment status: {}",
-                assignedStaff, deliveryStatus, paymentStatus);
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to filter videos - staff: {}, delivery status: {}, payment status: {}",
+                tenantId, assignedStaff, deliveryStatus, paymentStatus);
 
         try {
             List<VideoResponseDto> videos = videoService.filterVideos(assignedStaff, deliveryStatus, paymentStatus);
@@ -469,15 +491,16 @@ public class VideoController {
                     "deliveryStatus", deliveryStatus,
                     "paymentStatus", paymentStatus
             ));
+            response.put("tenantId", tenantId);
 
             return ResponseEntity.ok(response);
 
         } catch (IllegalArgumentException e) {
-            log.warn("Invalid filter parameters: {}", e.getMessage());
+            log.warn("[Tenant: {}] Invalid filter parameters: {}", tenantId, e.getMessage());
             return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
 
         } catch (Exception e) {
-            log.error("Error filtering videos: ", e);
+            log.error("[Tenant: {}] Error filtering videos: ", tenantId, e);
             return createErrorResponse("Lỗi khi lọc video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -513,6 +536,7 @@ public class VideoController {
         response.put("timestamp", System.currentTimeMillis());
         response.put("status", status.value());
         response.put("error", status.getReasonPhrase());
+        response.put("tenantId", TenantContext.getTenantId()); // Thêm tenant info vào error response
         return ResponseEntity.status(status).body(response);
     }
 
@@ -527,7 +551,8 @@ public class VideoController {
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(
             org.springframework.web.bind.MethodArgumentNotValidException ex) {
 
-        log.warn("Validation error occurred: {}", ex.getMessage());
+        String tenantId = TenantContext.getTenantId();
+        log.warn("[Tenant: {}] Validation error occurred: {}", tenantId, ex.getMessage());
 
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(error ->
@@ -542,6 +567,7 @@ public class VideoController {
         response.put("timestamp", System.currentTimeMillis());
         response.put("status", HttpStatus.BAD_REQUEST.value());
         response.put("error", "Bad Request");
+        response.put("tenantId", tenantId);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
@@ -554,7 +580,8 @@ public class VideoController {
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
-        log.error("Runtime exception occurred: ", ex);
+        String tenantId = TenantContext.getTenantId();
+        log.error("[Tenant: {}] Runtime exception occurred: ", tenantId, ex);
         return createErrorResponse("Đã xảy ra lỗi hệ thống: " + ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
@@ -566,7 +593,8 @@ public class VideoController {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
-        log.warn("Illegal argument exception: {}", ex.getMessage());
+        String tenantId = TenantContext.getTenantId();
+        log.warn("[Tenant: {}] Illegal argument exception: {}", tenantId, ex.getMessage());
         return createErrorResponse("Tham số không hợp lệ: " + ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 }

@@ -12,12 +12,16 @@ spring:
   application:
     name: video-management-api
 
+  # DataSource configuration - sẽ được override bởi TenantAwareDataSource
   datasource:
-    url: jdbc:mysql://localhost:3306/video_management?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://10.8.0.1:33068/video_management_1?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
-
+    # CRITICAL: Set auto-commit to false for Spring Transaction Management
+    hikari:
+      auto-commit: false
+      transaction-isolation: TRANSACTION_READ_COMMITTED
 
   jpa:
     hibernate:
@@ -28,22 +32,43 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
         use_sql_comments: true
+        # Performance tuning cho multi-tenant
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+        # CRITICAL FIX: Remove connection provider auto-commit disable
+        # connection:
+        #   provider_disables_autocommit: true
     open-in-view: false
+
+  # Transaction management configuration
+  transaction:
+    default-timeout: 30
+    rollback-on-commit-failure: true
 
   jackson:
     time-zone: Asia/Ho_Chi_Minh
     date-format: yyyy-MM-dd HH:mm:ss
 
+# Multi-tenant configuration
+multitenant:
+  # Default tenant khi không có header db
+  default-tenant: video_management_1
+
+  # DataSource configuration cho từng tenant
+  datasource:
+    # URL pattern - %s sẽ được thay thế bằng tenant ID (database name)
+    # FIXED: Remove createDatabaseIfNotExist to avoid auto-commit issues
+    url-pattern: "jdbc:mysql://10.8.0.1:33068/%s?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
+
+    # HikariCP Connection Pool Settings
+    maximum-pool-size: 10        # Tối đa 10 connections per tenant
+    minimum-idle: 2              # Tối thiểu 2 idle connections
+    connection-timeout: 30000    # 30 seconds timeout
+    idle-timeout: 600000         # 10 minutes idle timeout
+    max-lifetime: 1800000        # 30 minutes max connection lifetime
+    leak-detection-threshold: 60000  # 60 seconds leak detection
+
 policy:
   enforce: "/policy-enforcer.json"
-
-#logging:
-#  level:
-#    com.ptit.google.veo3: DEBUG
-#    org.springframework.web: DEBUG
-#    org.hibernate.SQL: DEBUG
-#    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-#  pattern:
-#    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-#    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-
