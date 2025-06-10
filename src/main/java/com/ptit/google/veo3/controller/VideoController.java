@@ -58,7 +58,12 @@ public class VideoController {
 
             Integer time = requestDto.getVideoDuration();
 
-            requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+            if (time == 8) {
+                requestDto.setOrderValue(BigDecimal.valueOf(20000));
+            } else {
+                requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+            }
+
 
             VideoResponseDto createdVideo = videoService.createVideo(requestDto);
 
@@ -89,7 +94,11 @@ public class VideoController {
 
         Integer time = requestDto.getVideoDuration();
 
-        requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+        if (time == 8) {
+            requestDto.setOrderValue(BigDecimal.valueOf(20000));
+        } else {
+            requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+        }
 
         log.info("Received request to update video with ID: {}", id);
 
