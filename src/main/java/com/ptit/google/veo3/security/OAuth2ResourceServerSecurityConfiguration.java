@@ -62,7 +62,7 @@ public class OAuth2ResourceServerSecurityConfiguration {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:3006","http://localhost:3009","http://localhost:3007",
-                "https://video.management.openlearnhub.io.vn/",
+                "https://video.management.openlearnhub.io.vn/","https://video.management.v1.openlearnhub.io.vn/",
                 "https://smart.feeds.openlearnhub.io.vn/"));
         config.setAllowedHeaders(Arrays.asList("Authorization", "Cache-Control", "Content-Type", "X-Requested-With"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
