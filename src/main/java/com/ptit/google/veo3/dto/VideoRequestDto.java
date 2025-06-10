@@ -61,7 +61,5 @@ public class VideoRequestDto {
 
     private LocalDateTime paymentDate;
 
-    @DecimalMin(value = "0.0", inclusive = false, message = "Giá trị đơn hàng phải lớn hơn 0")
-    @Digits(integer = 13, fraction = 2, message = "Giá trị đơn hàng không hợp lệ")
     private BigDecimal orderValue;
 }

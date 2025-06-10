@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,9 +19,9 @@ import java.util.Map;
 /**
  * REST Controller để xử lý các HTTP requests liên quan đến Video
  * Tuân theo RESTful API best practices
- *
+ * <p>
  * Base URL: /api/v1/videos
- *
+ * <p>
  * Endpoints:
  * - POST   /api/v1/videos                    - Tạo mới video
  * - PUT    /api/v1/videos/{id}               - Cập nhật video
@@ -54,6 +55,11 @@ public class VideoController {
         log.info("Received request to create video for customer: {}", requestDto.getCustomerName());
 
         try {
+
+            Integer time = requestDto.getVideoDuration();
+
+            requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+
             VideoResponseDto createdVideo = videoService.createVideo(requestDto);
 
             Map<String, Object> response = createSuccessResponse(
@@ -72,7 +78,7 @@ public class VideoController {
     /**
      * PUT /api/v1/videos/{id} - Cập nhật video
      *
-     * @param id - ID của video cần cập nhật
+     * @param id         - ID của video cần cập nhật
      * @param requestDto - Dữ liệu mới để cập nhật (đã được validate)
      * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
      */
@@ -106,7 +112,7 @@ public class VideoController {
     /**
      * PATCH /api/v1/videos/{id}/assigned-staff - Cập nhật nhân viên được giao
      *
-     * @param id - ID của video cần cập nhật
+     * @param id            - ID của video cần cập nhật
      * @param assignedStaff - Tên nhân viên được giao mới
      * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
      */
@@ -144,7 +150,7 @@ public class VideoController {
     /**
      * PATCH /api/v1/videos/{id}/status - Cập nhật trạng thái video
      *
-     * @param id - ID của video cần cập nhật
+     * @param id     - ID của video cần cập nhật
      * @param status - Trạng thái mới của video
      * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
      */
@@ -182,7 +188,7 @@ public class VideoController {
     /**
      * PATCH /api/v1/videos/{id}/video-url - Cập nhật link video
      *
-     * @param id - ID của video cần cập nhật
+     * @param id       - ID của video cần cập nhật
      * @param videoUrl - Link video mới
      * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
      */
@@ -279,16 +285,16 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos - Lấy danh sách tất cả video (có phân trang)
-     *
+     * <p>
      * Query Parameters:
      * - page: Số trang (mặc định: 0)
      * - size: Kích thước trang (mặc định: 10)
      * - sortBy: Trường để sắp xếp (mặc định: createdAt)
      * - sortDirection: Hướng sắp xếp - asc/desc (mặc định: desc)
      *
-     * @param page - Số trang cần lấy
-     * @param size - Số lượng record trên mỗi trang
-     * @param sortBy - Trường để sắp xếp
+     * @param page          - Số trang cần lấy
+     * @param size          - Số lượng record trên mỗi trang
+     * @param sortBy        - Trường để sắp xếp
      * @param sortDirection - Hướng sắp xếp (asc hoặc desc)
      * @return ResponseEntity chứa danh sách video với thông tin phân trang
      */
@@ -417,15 +423,15 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos/filter - Lọc video theo nhân viên, trạng thái giao hàng và trạng thái thanh toán
-     *
+     * <p>
      * Query Parameters:
      * - assignedStaff: Tên nhân viên được giao (optional)
      * - deliveryStatus: Trạng thái giao hàng (optional)
      * - paymentStatus: Trạng thái thanh toán (optional)
      *
-     * @param assignedStaff - Tên nhân viên được giao
+     * @param assignedStaff  - Tên nhân viên được giao
      * @param deliveryStatus - Trạng thái giao hàng
-     * @param paymentStatus - Trạng thái thanh toán
+     * @param paymentStatus  - Trạng thái thanh toán
      * @return ResponseEntity chứa danh sách video đã được lọc
      */
     @GetMapping("/filter")
@@ -467,7 +473,7 @@ public class VideoController {
      * Helper method để tạo response thành công với format nhất quán
      *
      * @param message - Thông báo thành công
-     * @param data - Dữ liệu trả về
+     * @param data    - Dữ liệu trả về
      * @return Map chứa thông tin response
      */
     private Map<String, Object> createSuccessResponse(String message, Object data) {
@@ -483,7 +489,7 @@ public class VideoController {
      * Helper method để tạo response lỗi với format nhất quán
      *
      * @param message - Thông báo lỗi
-     * @param status - HTTP status code
+     * @param status  - HTTP status code
      * @return ResponseEntity chứa thông tin lỗi
      */
     private ResponseEntity<Map<String, Object>> createErrorResponse(String message, HttpStatus status) {
