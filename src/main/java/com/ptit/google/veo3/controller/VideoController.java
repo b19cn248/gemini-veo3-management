@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * REST Controller để xử lý các HTTP requests liên quan đến Video
  * Tuân theo RESTful API best practices
- *
+ * <p>
  * Updated để support multi-tenant với tenant context logging
  * <p>
  * Base URL: /api/v1/videos
@@ -54,7 +54,10 @@ public class VideoController {
      * @return ResponseEntity chứa thông tin video vừa tạo hoặc thông báo lỗi
      */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createVideo(@Valid @RequestBody VideoRequestDto requestDto) {
+    public ResponseEntity<Map<String, Object>> createVideo(
+            @Valid @RequestBody VideoRequestDto requestDto,
+            @RequestHeader(value = "db", required = false) String dbHeader
+    ) {
         String tenantId = TenantContext.getTenantId();
         log.info("[Tenant: {}] Received request to create video for customer: {}", tenantId, requestDto.getCustomerName());
 
@@ -62,10 +65,30 @@ public class VideoController {
 
             Integer time = requestDto.getVideoDuration();
 
-            if (time == 8) {
-                requestDto.setOrderValue(BigDecimal.valueOf(20000));
+            Integer price = 0;
+
+            if (dbHeader != null && dbHeader.equals("video_management_1")) {
+                if (time == 8) {
+                    price = 15000;
+                }
+                if (time == 16) {
+                    price = 40000;
+                }
+                if (time == 24) {
+                    price = 60000;
+                }
+                if (time == 32) {
+                    price = 90000;
+                }
+
+                requestDto.setOrderValue(BigDecimal.valueOf(price));
             } else {
-                requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+                if (time == 8) {
+                    requestDto.setOrderValue(BigDecimal.valueOf(20000));
+                } else {
+                    requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+                }
+
             }
 
             VideoResponseDto createdVideo = videoService.createVideo(requestDto);
@@ -94,6 +117,7 @@ public class VideoController {
     @PutMapping("/{id}")
     public ResponseEntity<Map<String, Object>> updateVideo(
             @PathVariable Long id,
+            @RequestHeader(value = "db", required = false) String dbHeader,
             @Valid @RequestBody VideoRequestDto requestDto) {
 
         String tenantId = TenantContext.getTenantId();
@@ -101,10 +125,30 @@ public class VideoController {
 
         Integer time = requestDto.getVideoDuration();
 
-        if (time == 8) {
-            requestDto.setOrderValue(BigDecimal.valueOf(20000));
+        Integer price = 0;
+
+        if (dbHeader != null && dbHeader.equals("video_management_1")) {
+            if (time == 8) {
+                price = 15000;
+            }
+            if (time == 16) {
+                price = 40000;
+            }
+            if (time == 24) {
+                price = 60000;
+            }
+            if (time == 32) {
+                price = 90000;
+            }
+
+            requestDto.setOrderValue(BigDecimal.valueOf(price));
         } else {
-            requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+            if (time == 8) {
+                requestDto.setOrderValue(BigDecimal.valueOf(20000));
+            } else {
+                requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+            }
+
         }
 
         try {
@@ -330,9 +374,14 @@ public class VideoController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDirection) {
+            @RequestParam(defaultValue = "desc") String sortDirection,
+            @RequestHeader(value = "db", required = false) String dbHeader) {
 
         String tenantId = TenantContext.getTenantId();
+
+        // In ra value của header "db"
+        log.info("Header 'db' value: {}", dbHeader);
+
         log.info("[Tenant: {}] Received request to get all videos - page: {}, size: {}, sortBy: {}, direction: {}",
                 tenantId, page, size, sortBy, sortDirection);
 
@@ -353,7 +402,8 @@ public class VideoController {
                     "isFirst", videoPage.isFirst(),
                     "isLast", videoPage.isLast()
             ));
-            response.put("tenantId", tenantId); // Thêm thông tin tenant vào response
+            response.put("tenantId", tenantId);
+            response.put("dbHeader", dbHeader); // Thêm header value vào response
             response.put("timestamp", System.currentTimeMillis());
 
             return ResponseEntity.ok(response);
