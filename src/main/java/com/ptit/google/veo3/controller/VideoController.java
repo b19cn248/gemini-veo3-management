@@ -32,6 +32,7 @@ import java.util.Map;
  * - GET    /api/v1/videos/status/{status}    - Lấy video theo trạng thái
  * - PATCH  /api/v1/videos/{id}/assigned-staff - Cập nhật nhân viên được giao
  * - PATCH  /api/v1/videos/{id}/status        - Cập nhật trạng thái video
+ * - PATCH  /api/v1/videos/{id}/video-url     - Cập nhật link video
  */
 @RestController
 @RequestMapping("/api/v1/videos")
@@ -175,6 +176,44 @@ public class VideoController {
         } catch (Exception e) {
             log.error("Error updating status for video ID {}: ", id, e);
             return createErrorResponse("Lỗi khi cập nhật trạng thái video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * PATCH /api/v1/videos/{id}/video-url - Cập nhật link video
+     *
+     * @param id - ID của video cần cập nhật
+     * @param videoUrl - Link video mới
+     * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
+     */
+    @PatchMapping("/{id}/video-url")
+    public ResponseEntity<Map<String, Object>> updateVideoUrl(
+            @PathVariable Long id,
+            @RequestParam String videoUrl) {
+
+        log.info("Received request to update video URL for video ID: {} to URL: {}", id, videoUrl);
+
+        try {
+            VideoResponseDto updatedVideo = videoService.updateVideoUrl(id, videoUrl);
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Link video đã được cập nhật thành công",
+                    updatedVideo
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("Video not found with ID: {}", id);
+            return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid video URL for video ID {}: {}", id, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (Exception e) {
+            log.error("Error updating video URL for video ID {}: ", id, e);
+            return createErrorResponse("Lỗi khi cập nhật link video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

@@ -123,6 +123,27 @@ public class VideoService {
     }
 
     /**
+     * Cập nhật link video
+     */
+    @Transactional
+    public VideoResponseDto updateVideoUrl(Long id, String videoUrl) {
+        log.info("Updating video URL for video ID: {} to URL: {}", id, videoUrl);
+
+        Video existingVideo = findVideoByIdOrThrow(id);
+
+        // Validate video URL
+        if (videoUrl != null && videoUrl.length() > 500) {
+            throw new IllegalArgumentException("URL video không được vượt quá 500 ký tự");
+        }
+
+        existingVideo.setVideoUrl(videoUrl != null ? videoUrl.trim() : null);
+        Video updatedVideo = videoRepository.save(existingVideo);
+
+        log.info("Video URL updated successfully for video ID: {}", id);
+        return mapToResponseDto(updatedVideo);
+    }
+
+    /**
      * Xóa video theo ID
      */
     @Transactional
