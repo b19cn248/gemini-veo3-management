@@ -87,6 +87,10 @@ public class VideoController {
             @PathVariable Long id,
             @Valid @RequestBody VideoRequestDto requestDto) {
 
+        Integer time = requestDto.getVideoDuration();
+
+        requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
+
         log.info("Received request to update video with ID: {}", id);
 
         try {
