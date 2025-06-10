@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # MySQL Database Service
+  mysql:
+    image: mysql:8.0
+    container_name: video-management-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: video_management
+      MYSQL_USER: video_user
+      MYSQL_PASSWORD: video_password
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "33068:3306"
+    volumes:
+      # Persist database data
+      - mysql_data:/var/lib/mysql
+      # Custom MySQL configuration
+      - ./mysql/conf.d:/etc/mysql/conf.d
+      # Initialization scripts
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - video-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --innodb-buffer-pool-size=256M
+      --max-connections=200
+
+  # Video Management API Service
+  video-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: video-management-api
+    restart: unless-stopped
+    ports:
+      - "8085:8080"
+    environment:
+      # Database configuration
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/video_management?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+
+      # JPA/Hibernate configuration
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: false
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: true
+      SPRING_JPA_OPEN_IN_VIEW: false
+
+      # Application configuration
+      SERVER_PORT: 8080
+      SERVER_SERVLET_CONTEXT_PATH: /
+
+      # Jackson configuration
+      SPRING_JACKSON_TIME_ZONE: Asia/Ho_Chi_Minh
+      SPRING_JACKSON_DATE_FORMAT: yyyy-MM-dd HH:mm:ss
+
+      # OAuth2 configuration
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: https://keycloak.openlearnhub.io.vn/realms/OpenLearnHub/protocol/openid-connect/certs
+
+      # Policy enforcement
+      POLICY_ENFORCE: /policy-enforcer.json
+
+      # Java options
+      JAVA_OPTS: "-Xms512m -Xmx1024m -XX:+UseG1GC -Dspring.profiles.active=docker"
+    volumes:
+      # Application logs
+      - ./logs:/app/logs
+      # Policy enforcer config (if you want to override)
+      # - ./config/policy-enforcer.json:/app/policy-enforcer.json:ro
+    networks:
+      - video-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+networks:
+  video-network:
+    driver: bridge
+    name: video-management-network
+
+volumes:
+  mysql_data:
+    driver: local
+    name: video-management-mysql-data
