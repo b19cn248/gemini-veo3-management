@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+    Baseline migration: Tạo bảng videos với đầy đủ cấu trúc
+    Chỉ chạy khi bảng videos chưa tồn tại (cho DB mới)
+    -->
+
+    <changeSet id="create-videos-table-baseline" author="system">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="videos"/>
+            </not>
+        </preConditions>
+
+        <comment>Tạo bảng videos với đầy đủ cấu trúc bao gồm audit fields</comment>
+
+        <createTable tableName="videos">
+            <!-- Primary Key -->
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <!-- Core Video Fields -->
+            <column name="customer_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="video_content" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="image_url" type="VARCHAR(500)">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="video_duration" type="INT">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="delivery_time" type="DATETIME">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="assigned_staff" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="status" type="VARCHAR(20)" defaultValue="CHUA_AI_NHAN">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="video_url" type="VARCHAR(500)">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="completed_time" type="DATETIME">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="customer_approved" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="customer_note" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="checked" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="delivery_status" type="VARCHAR(20)" defaultValue="CHUA_GUI">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="payment_status" type="VARCHAR(20)" defaultValue="CHUA_THANH_TOAN">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="payment_date" type="DATETIME">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="order_value" type="DECIMAL(15,2)">
+                <constraints nullable="true"/>
+            </column>
+
+            <!-- Audit Fields - có sẵn từ đầu cho DB mới -->
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="updated_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="created_by" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="updated_by" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="is_deleted" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+
+            <column name="assigned_user_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+
+        <rollback>
+            <dropTable tableName="videos"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

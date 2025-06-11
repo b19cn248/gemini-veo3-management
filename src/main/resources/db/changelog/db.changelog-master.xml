@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+    Master Changelog file - điều phối tất cả các migration files
+
+    Cấu trúc:
+    - v1.0: Tạo bảng cơ bản (baseline cho DB mới)
+    - v1.1: Thêm audit fields cho existing DB
+    - v1.2: Tạo bảng users
+    - v1.3: Thêm constraints và indexes
+    -->
+
+    <!-- Version 1.0: Baseline - Tạo structure cơ bản cho DB mới -->
+    <include file="db/changelog/01-create-videos-table.xml" relativeToChangelogFile="false"/>
+
+    <!-- Version 1.1: Migration - Thêm audit fields cho existing DB -->
+    <include file="db/changelog/01-add-audit-fields-to-videos.xml" relativeToChangelogFile="false"/>
+
+    <!-- Version 1.2: New features - Tạo bảng users -->
+    <include file="db/changelog/01-create-users-table.xml" relativeToChangelogFile="false"/>
+
+</databaseChangeLog>

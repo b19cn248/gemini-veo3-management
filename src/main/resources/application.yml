@@ -14,7 +14,7 @@ spring:
 
   # DataSource configuration - sẽ được override bởi TenantAwareDataSource
   datasource:
-    url: jdbc:mysql://10.8.0.1:33068/video_management_1?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/video_management_1?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -23,9 +23,23 @@ spring:
       auto-commit: false
       transaction-isolation: TRANSACTION_READ_COMMITTED
 
+  # Liquibase Configuration
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+    # Liquibase sẽ tạo table riêng để track migration history
+    default-schema: ${multitenant.default-tenant:video_management_1}
+    # Contexts để control môi trường chạy
+    contexts: default
+    # Database change log table name (tùy chọn)
+    database-change-log-table: DATABASECHANGELOG
+    database-change-log-lock-table: DATABASECHANGELOGLOCK
+
   jpa:
     hibernate:
-      ddl-auto: update
+      # QUAN TRỌNG: Đổi từ 'update' sang 'validate'
+      # để Liquibase quản lý schema thay vì Hibernate
+      ddl-auto: none
     show-sql: true
     properties:
       hibernate:
@@ -41,6 +55,13 @@ spring:
         # connection:
         #   provider_disables_autocommit: true
     open-in-view: false
+
+  # Data JPA Auditing Configuration
+  # Bật auditing để tự động set createdBy, updatedBy
+  data:
+    jpa:
+      repositories:
+        enabled: true
 
   # Transaction management configuration
   transaction:
@@ -60,7 +81,7 @@ multitenant:
   datasource:
     # URL pattern - %s sẽ được thay thế bằng tenant ID (database name)
     # FIXED: Remove createDatabaseIfNotExist to avoid auto-commit issues
-    url-pattern: "jdbc:mysql://10.8.0.1:33068/%s?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
+    url-pattern: "jdbc:mysql://localhost:3306/%s?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
 
     # HikariCP Connection Pool Settings
     maximum-pool-size: 10        # Tối đa 10 connections per tenant
@@ -69,6 +90,16 @@ multitenant:
     idle-timeout: 600000         # 10 minutes idle timeout
     max-lifetime: 1800000        # 30 minutes max connection lifetime
     leak-detection-threshold: 60000  # 60 seconds leak detection
+
+# Logging configuration để monitor Liquibase
+logging:
+  level:
+    liquibase: INFO
+    com.ptit.google.veo3: DEBUG
+    org.springframework.data.jpa: DEBUG
+    # Bật log SQL để debug
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
 policy:
   enforce: "/policy-enforcer.json"
