@@ -185,7 +185,7 @@ public class VideoService {
         Sort.Direction direction = Sort.Direction.fromString(sortDirection);
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
-        Page<Video> videoPage = videoRepository.findAll(pageable);
+        Page<Video> videoPage = videoRepository.getAll(pageable);
 
         return videoPage.map(this::mapToResponseDto);
     }

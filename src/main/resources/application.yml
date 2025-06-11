@@ -14,7 +14,7 @@ spring:
 
   # DataSource configuration - sẽ được override bởi TenantAwareDataSource
   datasource:
-    url: jdbc:mysql://localhost:3306/video_management?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/video_management_1?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -28,7 +28,7 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.xml
     enabled: true
     # Liquibase sẽ tạo table riêng để track migration history
-    default-schema: ${multitenant.default-tenant:video_management}
+    default-schema: ${multitenant.default-tenant:video_management_1}
     # Contexts để control môi trường chạy
     contexts: default
     # Database change log table name (tùy chọn)
@@ -75,7 +75,7 @@ spring:
 # Multi-tenant configuration
 multitenant:
   # Default tenant khi không có header db
-  default-tenant: video_management
+  default-tenant: video_management_1
 
   # DataSource configuration cho từng tenant
   datasource:
