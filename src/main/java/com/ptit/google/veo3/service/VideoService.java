@@ -151,11 +151,17 @@ public class VideoService {
     public void deleteVideo(Long id) {
         log.info("Deleting video with ID: {}", id);
 
-        if (!videoRepository.existsById(id)) {
-            throw new VideoNotFoundException("Không tìm thấy video với ID: " + id);
-        }
+//        if (!videoRepository.existsById(id)) {
+//            throw new VideoNotFoundException("Không tìm thấy video với ID: " + id);
+//        }
 
-        videoRepository.deleteById(id);
+        Video video = videoRepository.findById(id).orElseThrow(
+                () -> new VideoNotFoundException("Không tìm thấy video với ID: " + id)
+        );
+
+        video.setIsDeleted(true);
+
+        videoRepository.save(video);
         log.info("Video deleted successfully with ID: {}", id);
     }
 

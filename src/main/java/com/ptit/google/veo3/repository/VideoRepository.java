@@ -47,4 +47,8 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
      * Đếm số video theo trạng thái
      */
     long countByStatus(VideoStatus status);
+
+
+    @Query("select v from Video v where v.isDeleted = false ")
+    Page<Video> getAll(Pageable pageable);
 }
