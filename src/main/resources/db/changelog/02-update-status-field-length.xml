@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+    Migration: Cập nhật độ dài các trường status trong bảng videos
+    Thay đổi từ VARCHAR(20) thành VARCHAR(50)
+    -->
+
+    <!-- Cập nhật trường status -->
+    <changeSet id="update-status-field-length" author="system">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="videos"/>
+            <columnExists tableName="videos" columnName="status"/>
+        </preConditions>
+
+        <comment>Cập nhật độ dài trường status từ VARCHAR(20) thành VARCHAR(50)</comment>
+
+        <modifyDataType tableName="videos" columnName="status" newDataType="VARCHAR(50)"/>
+
+        <rollback>
+            <modifyDataType tableName="videos" columnName="status" newDataType="VARCHAR(20)"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Cập nhật trường delivery_status -->
+    <changeSet id="update-delivery-status-field-length" author="system">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="videos"/>
+            <columnExists tableName="videos" columnName="delivery_status"/>
+        </preConditions>
+
+        <comment>Cập nhật độ dài trường delivery_status từ VARCHAR(20) thành VARCHAR(50)</comment>
+
+        <modifyDataType tableName="videos" columnName="delivery_status" newDataType="VARCHAR(50)"/>
+
+        <rollback>
+            <modifyDataType tableName="videos" columnName="delivery_status" newDataType="VARCHAR(20)"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Cập nhật trường payment_status -->
+    <changeSet id="update-payment-status-field-length" author="system">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="videos"/>
+            <columnExists tableName="videos" columnName="payment_status"/>
+        </preConditions>
+
+        <comment>Cập nhật độ dài trường payment_status từ VARCHAR(20) thành VARCHAR(50)</comment>
+
+        <modifyDataType tableName="videos" columnName="payment_status" newDataType="VARCHAR(50)"/>
+
+        <rollback>
+            <modifyDataType tableName="videos" columnName="payment_status" newDataType="VARCHAR(20)"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

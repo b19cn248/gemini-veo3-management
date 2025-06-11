@@ -444,7 +444,7 @@ public class VideoService {
         } catch (IllegalArgumentException e) {
             log.warn("Invalid delivery status: '{}'", statusString);
             throw new IllegalArgumentException("Trạng thái giao hàng không hợp lệ: " + statusString +
-                    ". Các trạng thái hợp lệ: CHUA_GUI, DANG_GUI, DA_GUI");
+                    ".Các trạng thái hợp lệ: CHUA_GUI, DANG_GUI, DA_GUI");
         }
 
         existingVideo.setDeliveryStatus(status);

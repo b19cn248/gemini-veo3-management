@@ -24,4 +24,6 @@
     <!-- Version 1.2: New features - Tạo bảng users -->
     <include file="db/changelog/01-create-users-table.xml" relativeToChangelogFile="false"/>
 
+    <include file="db/changelog/02-update-status-field-length.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

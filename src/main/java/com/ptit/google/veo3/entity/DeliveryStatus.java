@@ -2,7 +2,8 @@ package com.ptit.google.veo3.entity;
 
 public enum DeliveryStatus {
     DA_GUI("Đã gửi"),
-    CHUA_GUI("Chưa gửi");
+    CHUA_GUI("Chưa gửi"),
+    CAN_SUA_GAP("Cần sửa gấp");
 
     private final String displayName;
 
