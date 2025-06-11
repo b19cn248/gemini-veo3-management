@@ -69,29 +69,20 @@ public class VideoController {
 
             Integer price = 0;
 
-            if (dbHeader != null && dbHeader.equals("video_management_1")) {
-                if (time == 8) {
-                    price = 15000;
-                }
-                if (time == 16) {
-                    price = 40000;
-                }
-                if (time == 24) {
-                    price = 60000;
-                }
-                if (time == 32) {
-                    price = 90000;
-                }
-
-                requestDto.setOrderValue(BigDecimal.valueOf(price));
-            } else {
-                if (time == 8) {
-                    requestDto.setOrderValue(BigDecimal.valueOf(20000));
-                } else {
-                    requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
-                }
-
+            if (time == 8) {
+                price = 15000;
             }
+            if (time == 16) {
+                price = 45000;
+            }
+            if (time == 24) {
+                price = 65000;
+            }
+            if (time == 32) {
+                price = 10000;
+            }
+
+            requestDto.setOrderValue(BigDecimal.valueOf(price));
 
             VideoResponseDto createdVideo = videoService.createVideo(requestDto);
 
@@ -129,29 +120,20 @@ public class VideoController {
 
         Integer price = 0;
 
-        if (dbHeader != null && dbHeader.equals("video_management_1")) {
-            if (time == 8) {
-                price = 15000;
-            }
-            if (time == 16) {
-                price = 40000;
-            }
-            if (time == 24) {
-                price = 60000;
-            }
-            if (time == 32) {
-                price = 90000;
-            }
-
-            requestDto.setOrderValue(BigDecimal.valueOf(price));
-        } else {
-            if (time == 8) {
-                requestDto.setOrderValue(BigDecimal.valueOf(20000));
-            } else {
-                requestDto.setOrderValue(BigDecimal.valueOf(time).multiply(BigDecimal.valueOf(3750)));
-            }
-
+        if (time == 8) {
+            price = 15000;
         }
+        if (time == 16) {
+            price = 45000;
+        }
+        if (time == 24) {
+            price = 65000;
+        }
+        if (time == 32) {
+            price = 10000;
+        }
+
+        requestDto.setOrderValue(BigDecimal.valueOf(price));
 
         try {
             VideoResponseDto updatedVideo = videoService.updateVideo(id, requestDto);
