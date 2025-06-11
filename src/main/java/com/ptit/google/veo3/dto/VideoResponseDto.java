@@ -38,6 +38,7 @@ public class VideoResponseDto {
     private PaymentStatus paymentStatus;
     private LocalDateTime paymentDate;
     private BigDecimal orderValue;
+    private String createdBy;
 
     /**
      * Helper method để format thời lượng video thành định dạng HH:mm:ss

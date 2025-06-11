@@ -472,7 +472,7 @@ public class VideoService {
         }
 
         existingVideo.setPaymentStatus(status);
-        
+
         // Tự động set paymentDate khi status = DA_THANH_TOAN
         if (status == PaymentStatus.DA_THANH_TOAN && existingVideo.getPaymentDate() == null) {
             existingVideo.setPaymentDate(LocalDateTime.now());
@@ -563,6 +563,7 @@ public class VideoService {
     private VideoResponseDto mapToResponseDto(Video video) {
         return VideoResponseDto.builder()
                 .id(video.getId())
+                .createdBy(video.getCreatedBy())
                 .customerName(video.getCustomerName())
                 .videoContent(video.getVideoContent())
                 .imageUrl(video.getImageUrl())
