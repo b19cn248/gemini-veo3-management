@@ -79,7 +79,7 @@ public class VideoController {
                 price = 65000;
             }
             if (time == 32) {
-                price = 10000;
+                price = 100000;
             }
 
             requestDto.setOrderValue(BigDecimal.valueOf(price));
@@ -130,7 +130,7 @@ public class VideoController {
             price = 65000;
         }
         if (time == 32) {
-            price = 10000;
+            price = 100000;
         }
 
         requestDto.setOrderValue(BigDecimal.valueOf(price));
