@@ -37,6 +37,8 @@ import java.util.Map;
  * - PATCH  /api/v1/videos/{id}/assigned-staff - Cập nhật nhân viên được giao
  * - PATCH  /api/v1/videos/{id}/status        - Cập nhật trạng thái video
  * - PATCH  /api/v1/videos/{id}/video-url     - Cập nhật link video
+ * - PUT    /api/v1/videos/{id}/delivery-status - Cập nhật trạng thái giao hàng
+ * - PUT    /api/v1/videos/{id}/payment-status  - Cập nhật trạng thái thanh toán
  */
 @RestController
 @RequestMapping("/api/v1/videos")
@@ -552,6 +554,86 @@ public class VideoController {
         } catch (Exception e) {
             log.error("[Tenant: {}] Error filtering videos: ", tenantId, e);
             return createErrorResponse("Lỗi khi lọc video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * PUT /api/v1/videos/{id}/delivery-status - Cập nhật trạng thái giao hàng
+     *
+     * @param id     - ID của video cần cập nhật
+     * @param status - Trạng thái giao hàng mới
+     * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
+     */
+    @PutMapping("/{id}/delivery-status")
+    public ResponseEntity<Map<String, Object>> updateDeliveryStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to update delivery status for video ID: {} to status: {}",
+                tenantId, id, status);
+
+        try {
+            VideoResponseDto updatedVideo = videoService.updateDeliveryStatus(id, status);
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Trạng thái giao hàng đã được cập nhật thành công",
+                    updatedVideo
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
+            return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("[Tenant: {}] Invalid delivery status for video ID {}: {}", tenantId, id, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error updating delivery status for video ID {}: ", tenantId, id, e);
+            return createErrorResponse("Lỗi khi cập nhật trạng thái giao hàng: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * PUT /api/v1/videos/{id}/payment-status - Cập nhật trạng thái thanh toán
+     *
+     * @param id     - ID của video cần cập nhật
+     * @param status - Trạng thái thanh toán mới
+     * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
+     */
+    @PutMapping("/{id}/payment-status")
+    public ResponseEntity<Map<String, Object>> updatePaymentStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to update payment status for video ID: {} to status: {}",
+                tenantId, id, status);
+
+        try {
+            VideoResponseDto updatedVideo = videoService.updatePaymentStatus(id, status);
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Trạng thái thanh toán đã được cập nhật thành công",
+                    updatedVideo
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
+            return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("[Tenant: {}] Invalid payment status for video ID {}: {}", tenantId, id, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error updating payment status for video ID {}: ", tenantId, id, e);
+            return createErrorResponse("Lỗi khi cập nhật trạng thái thanh toán: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

@@ -419,6 +419,72 @@ public class VideoService {
     }
 
     /**
+     * Cập nhật trạng thái giao hàng
+     */
+    @Transactional
+    public VideoResponseDto updateDeliveryStatus(Long id, String statusString) {
+        log.info("Updating delivery status for video ID: {} to status: {}", id, statusString);
+
+        Video existingVideo = findVideoByIdOrThrow(id);
+
+        // Validate và convert status string to enum
+        if (!StringUtils.hasText(statusString)) {
+            throw new IllegalArgumentException("Trạng thái giao hàng không được để trống");
+        }
+
+        DeliveryStatus status;
+        try {
+            status = DeliveryStatus.valueOf(statusString.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid delivery status: '{}'", statusString);
+            throw new IllegalArgumentException("Trạng thái giao hàng không hợp lệ: " + statusString +
+                    ". Các trạng thái hợp lệ: CHUA_GUI, DANG_GUI, DA_GUI");
+        }
+
+        existingVideo.setDeliveryStatus(status);
+        Video updatedVideo = videoRepository.save(existingVideo);
+
+        log.info("Delivery status updated successfully for video ID: {} to status: {}", id, status);
+        return mapToResponseDto(updatedVideo);
+    }
+
+    /**
+     * Cập nhật trạng thái thanh toán
+     */
+    @Transactional
+    public VideoResponseDto updatePaymentStatus(Long id, String statusString) {
+        log.info("Updating payment status for video ID: {} to status: {}", id, statusString);
+
+        Video existingVideo = findVideoByIdOrThrow(id);
+
+        // Validate và convert status string to enum
+        if (!StringUtils.hasText(statusString)) {
+            throw new IllegalArgumentException("Trạng thái thanh toán không được để trống");
+        }
+
+        PaymentStatus status;
+        try {
+            status = PaymentStatus.valueOf(statusString.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid payment status: '{}'", statusString);
+            throw new IllegalArgumentException("Trạng thái thanh toán không hợp lệ: " + statusString +
+                    ". Các trạng thái hợp lệ: CHUA_THANH_TOAN, DA_THANH_TOAN");
+        }
+
+        existingVideo.setPaymentStatus(status);
+        
+        // Tự động set paymentDate khi status = DA_THANH_TOAN
+        if (status == PaymentStatus.DA_THANH_TOAN && existingVideo.getPaymentDate() == null) {
+            existingVideo.setPaymentDate(LocalDateTime.now());
+        }
+
+        Video updatedVideo = videoRepository.save(existingVideo);
+
+        log.info("Payment status updated successfully for video ID: {} to status: {}", id, status);
+        return mapToResponseDto(updatedVideo);
+    }
+
+    /**
      * Helper method để tìm video theo ID, throw exception nếu không tìm thấy
      */
     private Video findVideoByIdOrThrow(Long id) {
