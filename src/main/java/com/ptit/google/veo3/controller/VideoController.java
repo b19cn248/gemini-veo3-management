@@ -12,11 +12,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -670,16 +672,19 @@ public class VideoController {
     /**
      * GET /api/v1/videos/staff-salaries - Lấy tổng tiền lương của các nhân viên
      * Chỉ tính các video đã thanh toán
+     * Có thể lọc theo ngày thanh toán
      *
+     * @param date Ngày cần thống kê (format: yyyy-MM-dd, optional)
      * @return ResponseEntity chứa danh sách tổng tiền lương của từng nhân viên
      */
     @GetMapping("/staff-salaries")
-    public ResponseEntity<Map<String, Object>> getStaffSalaries() {
+    public ResponseEntity<Map<String, Object>> getStaffSalaries(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         String tenantId = TenantContext.getTenantId();
-        log.info("[Tenant: {}] Received request to get staff salaries", tenantId);
+        log.info("[Tenant: {}] Received request to get staff salaries for date: {}", tenantId, date);
 
         try {
-            List<StaffSalaryDto> salaries = videoService.calculateStaffSalaries();
+            List<StaffSalaryDto> salaries = videoService.calculateStaffSalaries(date);
 
             // Tính tổng tiền lương của tất cả nhân viên
             BigDecimal totalSalary = salaries.stream()
@@ -692,12 +697,15 @@ public class VideoController {
                     .sum();
 
             Map<String, Object> response = createSuccessResponse(
-                    "Lấy thông tin lương nhân viên thành công",
+                    date != null ? 
+                        String.format("Lấy thông tin lương nhân viên ngày %s thành công", date) :
+                        "Lấy thông tin lương nhân viên thành công",
                     salaries
             );
             response.put("totalStaff", salaries.size());
             response.put("totalSalary", totalSalary);
             response.put("totalVideos", totalVideos);
+            response.put("date", date);
             response.put("tenantId", tenantId);
 
             return ResponseEntity.ok(response);

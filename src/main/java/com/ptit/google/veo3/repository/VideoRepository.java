@@ -14,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -75,7 +76,8 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
            "FROM Video v " +
            "WHERE v.isDeleted = false " +
            "AND v.paymentStatus = 'DA_THANH_TOAN' " +
+           "AND (:date IS NULL OR DATE(v.paymentDate) = :date) " +
            "GROUP BY v.assignedStaff")
-    List<StaffSalaryDto> calculateStaffSalaries();
+    List<StaffSalaryDto> calculateStaffSalaries(@Param("date") LocalDate date);
 
 }

@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -505,10 +506,14 @@ public class VideoService {
     /**
      * Tính tổng tiền lương cho các nhân viên
      * Chỉ tính các video đã thanh toán
+     * Có thể lọc theo ngày thanh toán
+     *
+     * @param date Ngày cần thống kê (có thể null để lấy tất cả)
+     * @return Danh sách thông tin lương của từng nhân viên
      */
-    public List<StaffSalaryDto> calculateStaffSalaries() {
-        log.info("Calculating staff salaries");
-        List<StaffSalaryDto> salaries = videoRepository.calculateStaffSalaries();
+    public List<StaffSalaryDto> calculateStaffSalaries(LocalDate date) {
+        log.info("Calculating staff salaries for date: {}", date);
+        List<StaffSalaryDto> salaries = videoRepository.calculateStaffSalaries(date);
         log.info("Found salary information for {} staff members", salaries.size());
         return salaries;
     }
