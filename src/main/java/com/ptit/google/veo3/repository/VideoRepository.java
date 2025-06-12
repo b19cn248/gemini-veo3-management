@@ -1,8 +1,11 @@
 package com.ptit.google.veo3.repository;
 
 
+import com.ptit.google.veo3.entity.DeliveryStatus;
+import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.entity.VideoStatus;
+import com.ptit.google.veo3.dto.StaffSalaryDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -49,6 +52,30 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     long countByStatus(VideoStatus status);
 
 
-    @Query("select v from Video v where v.isDeleted = false ")
-    Page<Video> getAll(Pageable pageable);
+    @Query("SELECT v FROM Video v WHERE v.isDeleted = false " +
+            "AND (:videoStatus IS NULL OR v.status = :videoStatus) " +
+            "AND (:assignedStaff IS NULL OR v.assignedStaff LIKE %:assignedStaff%) " +
+            "AND (:deliveryStatus IS NULL OR v.deliveryStatus = :deliveryStatus) " +
+            "AND (:paymentStatus IS NULL OR v.paymentStatus = :paymentStatus)")
+    Page<Video> getAll(
+            Pageable pageable,
+            VideoStatus videoStatus,
+            @Param("assignedStaff") String assignedStaff,
+            @Param("deliveryStatus") DeliveryStatus deliveryStatus,
+            @Param("paymentStatus") PaymentStatus paymentStatus
+    );
+
+    @Query("SELECT DISTINCT v.assignedStaff FROM Video v WHERE v.assignedStaff IS NOT NULL AND v.isDeleted = false")
+    List<String> findDistinctAssignedStaff();
+
+    @Query("SELECT new com.ptit.google.veo3.dto.StaffSalaryDto(" +
+           "COALESCE(v.assignedStaff, 'Chưa ai nhận'), " +
+           "SUM(v.orderValue), " +
+           "COUNT(v)) " +
+           "FROM Video v " +
+           "WHERE v.isDeleted = false " +
+           "AND v.paymentStatus = 'DA_THANH_TOAN' " +
+           "GROUP BY v.assignedStaff")
+    List<StaffSalaryDto> calculateStaffSalaries();
+
 }

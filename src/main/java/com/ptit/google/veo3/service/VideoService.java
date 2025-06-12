@@ -1,5 +1,6 @@
 package com.ptit.google.veo3.service;
 
+import com.ptit.google.veo3.dto.StaffSalaryDto;
 import com.ptit.google.veo3.dto.VideoRequestDto;
 import com.ptit.google.veo3.dto.VideoResponseDto;
 import com.ptit.google.veo3.entity.DeliveryStatus;
@@ -178,14 +179,15 @@ public class VideoService {
     /**
      * Lấy danh sách tất cả video với phân trang
      */
-    public Page<VideoResponseDto> getAllVideos(int page, int size, String sortBy, String sortDirection) {
+    public Page<VideoResponseDto> getAllVideos(int page, int size, String sortBy, String sortDirection,
+                                               VideoStatus videoStatus, String assignedStaff, DeliveryStatus deliveryStatus, PaymentStatus paymentStatus) {
         log.info("Fetching all videos - page: {}, size: {}, sortBy: {}, direction: {}",
                 page, size, sortBy, sortDirection);
 
         Sort.Direction direction = Sort.Direction.fromString(sortDirection);
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
-        Page<Video> videoPage = videoRepository.getAll(pageable);
+        Page<Video> videoPage = videoRepository.getAll(pageable, videoStatus, assignedStaff, deliveryStatus, paymentStatus);
 
         return videoPage.map(this::mapToResponseDto);
     }
@@ -488,6 +490,27 @@ public class VideoService {
 
         log.info("Payment status updated successfully for video ID: {} to status: {}", id, status);
         return mapToResponseDto(updatedVideo);
+    }
+
+    /**
+     * Lấy danh sách các nhân viên được giao khác nhau
+     */
+    public List<String> getDistinctAssignedStaff() {
+        log.info("Fetching distinct assigned staff names");
+        List<String> staffList = videoRepository.findDistinctAssignedStaff();
+        log.info("Found {} distinct staff members", staffList.size());
+        return staffList;
+    }
+
+    /**
+     * Tính tổng tiền lương cho các nhân viên
+     * Chỉ tính các video đã thanh toán
+     */
+    public List<StaffSalaryDto> calculateStaffSalaries() {
+        log.info("Calculating staff salaries");
+        List<StaffSalaryDto> salaries = videoRepository.calculateStaffSalaries();
+        log.info("Found salary information for {} staff members", salaries.size());
+        return salaries;
     }
 
     /**

@@ -1,7 +1,11 @@
 package com.ptit.google.veo3.controller;
 
+import com.ptit.google.veo3.dto.StaffSalaryDto;
 import com.ptit.google.veo3.dto.VideoRequestDto;
 import com.ptit.google.veo3.dto.VideoResponseDto;
+import com.ptit.google.veo3.entity.DeliveryStatus;
+import com.ptit.google.veo3.entity.PaymentStatus;
+import com.ptit.google.veo3.entity.VideoStatus;
 import com.ptit.google.veo3.multitenant.TenantContext;
 import com.ptit.google.veo3.service.VideoService;
 import jakarta.validation.Valid;
@@ -13,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -357,6 +362,10 @@ public class VideoController {
     public ResponseEntity<Map<String, Object>> getAllVideos(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) VideoStatus status,
+            @RequestParam(required = false) String assignedStaff,
+            @RequestParam(required = false) DeliveryStatus deliveryStatus,
+            @RequestParam(required = false) PaymentStatus paymentStatus,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDirection,
             @RequestHeader(value = "db", required = false) String dbHeader) {
@@ -370,7 +379,8 @@ public class VideoController {
                 tenantId, page, size, sortBy, sortDirection);
 
         try {
-            Page<VideoResponseDto> videoPage = videoService.getAllVideos(page, size, sortBy, sortDirection);
+            Page<VideoResponseDto> videoPage = videoService.getAllVideos(page, size, sortBy, sortDirection,
+                    status, assignedStaff, deliveryStatus, paymentStatus);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -616,6 +626,85 @@ public class VideoController {
         } catch (Exception e) {
             log.error("[Tenant: {}] Error updating payment status for video ID {}: ", tenantId, id, e);
             return createErrorResponse("Lỗi khi cập nhật trạng thái thanh toán: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/videos/assigned-staff - Lấy danh sách các nhân viên được giao khác nhau
+     *
+     * @return ResponseEntity chứa danh sách tên nhân viên
+     */
+    @GetMapping("/assigned-staff")
+    public ResponseEntity<Map<String, Object>> getDistinctAssignedStaff() {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get distinct assigned staff names", tenantId);
+
+        try {
+            List<String> staffList = videoService.getDistinctAssignedStaff();
+
+            List<String> staffNames = new ArrayList<>();
+
+            for (String staff : staffList) {
+                if (staff.isBlank()) {
+                    staffNames.add("Chưa ai nhận");
+                } else {
+                    staffNames.add(staff);
+                }
+            }
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Lấy danh sách nhân viên thành công",
+                    staffNames
+            );
+            response.put("total", staffNames.size());
+            response.put("tenantId", tenantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error getting distinct assigned staff: ", tenantId, e);
+            return createErrorResponse("Lỗi khi lấy danh sách nhân viên: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/videos/staff-salaries - Lấy tổng tiền lương của các nhân viên
+     * Chỉ tính các video đã thanh toán
+     *
+     * @return ResponseEntity chứa danh sách tổng tiền lương của từng nhân viên
+     */
+    @GetMapping("/staff-salaries")
+    public ResponseEntity<Map<String, Object>> getStaffSalaries() {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get staff salaries", tenantId);
+
+        try {
+            List<StaffSalaryDto> salaries = videoService.calculateStaffSalaries();
+
+            // Tính tổng tiền lương của tất cả nhân viên
+            BigDecimal totalSalary = salaries.stream()
+                    .map(StaffSalaryDto::getTotalSalary)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // Tính tổng số video đã thanh toán
+            Long totalVideos = salaries.stream()
+                    .mapToLong(StaffSalaryDto::getTotalVideos)
+                    .sum();
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Lấy thông tin lương nhân viên thành công",
+                    salaries
+            );
+            response.put("totalStaff", salaries.size());
+            response.put("totalSalary", totalSalary);
+            response.put("totalVideos", totalVideos);
+            response.put("tenantId", tenantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error getting staff salaries: ", tenantId, e);
+            return createErrorResponse("Lỗi khi lấy thông tin lương nhân viên: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
