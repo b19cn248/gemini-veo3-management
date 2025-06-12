@@ -81,7 +81,30 @@ public class VideoService {
             throw new IllegalArgumentException("Tên nhân viên không được vượt quá 255 ký tự");
         }
 
+        // Check if staff already has 2 or more videos in progress
+        if (assignedStaff != null && !assignedStaff.trim().isEmpty()) {
+            long count = videoRepository.countByAssignedStaffAndStatus(assignedStaff.trim(), VideoStatus.DANG_LAM);
+            if (count >= 2) {
+                throw new IllegalArgumentException("Bạn đang nhận 2 đơn, hoàn thành trước khi nhận đơn mới");
+            }
+
+            // Check if staff has 2 or more videos that need urgent fixes
+            long urgentCount = videoRepository.countByAssignedStaffAndDeliveryStatus(assignedStaff.trim(), DeliveryStatus.CAN_SUA_GAP);
+            if (urgentCount >= 2) {
+                throw new IllegalArgumentException("Có 2 đơn cần sửa gấp, không thể nhận đơn");
+            }
+        }
+
         existingVideo.setAssignedStaff(assignedStaff != null ? assignedStaff.trim() : null);
+        
+        // Tự động chuyển trạng thái sang DANG_LAM khi gán nhân viên
+        if (assignedStaff != null && !assignedStaff.trim().isEmpty()) {
+            existingVideo.setStatus(VideoStatus.DANG_LAM);
+        } else {
+            // Nếu không có nhân viên được gán thì chuyển về CHUA_AI_NHAN
+            existingVideo.setStatus(VideoStatus.CHUA_AI_NHAN);
+        }
+        
         Video updatedVideo = videoRepository.save(existingVideo);
 
         log.info("Assigned staff updated successfully for video ID: {}", id);
@@ -109,6 +132,23 @@ public class VideoService {
             log.warn("Invalid video status: '{}'", statusString);
             throw new IllegalArgumentException("Trạng thái video không hợp lệ: " + statusString +
                     ". Các trạng thái hợp lệ: CHUA_AI_NHAN, DANG_LAM, DA_XONG, DANG_SUA, DA_SUA_XONG");
+        }
+
+        // Kiểm tra nếu đang cố gắng chuyển sang CHUA_AI_NHAN khi video đã có người nhận
+        if (status == VideoStatus.CHUA_AI_NHAN && 
+            existingVideo.getAssignedStaff() != null && 
+            !existingVideo.getAssignedStaff().trim().isEmpty() &&
+            (existingVideo.getStatus() == VideoStatus.DANG_LAM ||
+             existingVideo.getStatus() == VideoStatus.DANG_SUA ||
+             existingVideo.getStatus() == VideoStatus.DA_XONG ||
+             existingVideo.getStatus() == VideoStatus.DA_SUA_XONG)) {
+            throw new IllegalArgumentException("Hiện tại video này đã có người nhận, không thể cập nhật trạng thái sang chưa ai nhận");
+        }
+
+        // Check if video URL exists when changing status to DA_XONG or DA_SUA_XONG
+        if ((status == VideoStatus.DA_XONG || status == VideoStatus.DA_SUA_XONG) 
+            && (existingVideo.getVideoUrl() == null || existingVideo.getVideoUrl().trim().isEmpty())) {
+            throw new IllegalArgumentException("Phải có link video trước khi chuyển sang xong hoặc đã xong");
         }
 
         existingVideo.setStatus(status);

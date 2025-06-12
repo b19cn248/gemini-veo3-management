@@ -1,11 +1,11 @@
 package com.ptit.google.veo3.repository;
 
 
+import com.ptit.google.veo3.dto.StaffSalaryDto;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.entity.VideoStatus;
-import com.ptit.google.veo3.dto.StaffSalaryDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,8 +13,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -70,14 +70,24 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     List<String> findDistinctAssignedStaff();
 
     @Query("SELECT new com.ptit.google.veo3.dto.StaffSalaryDto(" +
-           "COALESCE(v.assignedStaff, 'Chưa ai nhận'), " +
-           "SUM(v.orderValue), " +
-           "COUNT(v)) " +
-           "FROM Video v " +
-           "WHERE v.isDeleted = false " +
-           "AND v.paymentStatus = 'DA_THANH_TOAN' " +
-           "AND (:date IS NULL OR DATE(v.paymentDate) = :date) " +
-           "GROUP BY v.assignedStaff")
+            "COALESCE(v.assignedStaff, 'Chưa ai nhận'), " +
+            "SUM(v.orderValue), " +
+            "COUNT(v)) " +
+            "FROM Video v " +
+            "WHERE v.isDeleted = false " +
+            "AND v.paymentStatus = 'DA_THANH_TOAN' " +
+            "AND (:date IS NULL OR DATE(v.paymentDate) = :date) " +
+            "GROUP BY v.assignedStaff")
     List<StaffSalaryDto> calculateStaffSalaries(@Param("date") LocalDate date);
+
+    /**
+     * Đếm số video theo nhân viên được giao và trạng thái
+     */
+    long countByAssignedStaffAndStatus(String assignedStaff, VideoStatus status);
+
+    /**
+     * Đếm số video theo nhân viên được giao và trạng thái giao hàng
+     */
+    long countByAssignedStaffAndDeliveryStatus(String assignedStaff, DeliveryStatus deliveryStatus);
 
 }
