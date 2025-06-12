@@ -5,8 +5,11 @@ import com.ptit.google.veo3.dto.VideoRequestDto;
 import com.ptit.google.veo3.dto.VideoResponseDto;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
+import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.entity.VideoStatus;
 import com.ptit.google.veo3.multitenant.TenantContext;
+import com.ptit.google.veo3.service.JwtTokenService;
+import com.ptit.google.veo3.service.StaffWorkloadService;
 import com.ptit.google.veo3.service.VideoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -41,11 +45,12 @@ import java.util.Map;
  * - GET    /api/v1/videos/all                - Lấy tất cả video (không phân trang)
  * - GET    /api/v1/videos/search             - Tìm kiếm video theo tên khách hàng
  * - GET    /api/v1/videos/status/{status}    - Lấy video theo trạng thái
- * - PATCH  /api/v1/videos/{id}/assigned-staff - Cập nhật nhân viên được giao
- * - PATCH  /api/v1/videos/{id}/status        - Cập nhật trạng thái video
- * - PATCH  /api/v1/videos/{id}/video-url     - Cập nhật link video
+ * - PATCH  /api/v1/videos/{id}/assigned-staff - Cập nhật nhân viên được giao (MAX: 3 videos)
+ * - PATCH  /api/v1/videos/{id}/status        - Cập nhật trạng thái video (PERMISSION: chỉ assignedStaff)
+ * - PATCH  /api/v1/videos/{id}/video-url     - Cập nhật link video (PERMISSION: chỉ assignedStaff)
  * - PUT    /api/v1/videos/{id}/delivery-status - Cập nhật trạng thái giao hàng
  * - PUT    /api/v1/videos/{id}/payment-status  - Cập nhật trạng thái thanh toán
+ * - GET    /api/v1/videos/staff-workload     - Lấy thông tin workload của nhân viên
  */
 @RestController
 @RequestMapping("/api/v1/videos")
@@ -55,6 +60,8 @@ import java.util.Map;
 public class VideoController {
 
     private final VideoService videoService;
+    private final JwtTokenService jwtTokenService;
+    private final StaffWorkloadService staffWorkloadService;
 
     /**
      * POST /api/v1/videos - Tạo mới video
@@ -204,11 +211,18 @@ public class VideoController {
     }
 
     /**
-     * PATCH /api/v1/videos/{id}/status - Cập nhật trạng thái video
+     * PATCH Cập nhật trạng thái video - Cập nhật trạng thái video
+     * 
+     * SECURITY: Chỉ có nhân viên được giao video mới có quyền cập nhật trạng thái
+     * Logic phân quyền: So sánh trường "name" từ JWT token với assignedStaff của video
      *
      * @param id     - ID của video cần cập nhật
      * @param status - Trạng thái mới của video
      * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
+     *         - 200 OK: Cập nhật thành công
+     *         - 403 FORBIDDEN: Không có quyền cập nhật (không phải người được giao)
+     *         - 404 NOT_FOUND: Không tìm thấy video
+     *         - 400 BAD_REQUEST: Tham số không hợp lệ
      */
     @PatchMapping("/{id}/status")
     public ResponseEntity<Map<String, Object>> updateVideoStatus(
@@ -233,6 +247,10 @@ public class VideoController {
             log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
             return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
 
+        } catch (SecurityException e) {
+            log.warn("[Tenant: {}] Access denied for video status update - video ID: {}, error: {}", tenantId, id, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.FORBIDDEN);
+
         } catch (IllegalArgumentException e) {
             log.warn("[Tenant: {}] Invalid status for video ID {}: {}", tenantId, id, e.getMessage());
             return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
@@ -245,10 +263,17 @@ public class VideoController {
 
     /**
      * PATCH /api/v1/videos/{id}/video-url - Cập nhật link video
+     * 
+     * SECURITY: Chỉ có nhân viên được giao video mới có quyền cập nhật video URL
+     * Logic phân quyền: So sánh trường "name" từ JWT token với assignedStaff của video
      *
      * @param id       - ID của video cần cập nhật
      * @param videoUrl - Link video mới
      * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
+     *         - 200 OK: Cập nhật thành công
+     *         - 403 FORBIDDEN: Không có quyền cập nhật (không phải người được giao)
+     *         - 404 NOT_FOUND: Không tìm thấy video
+     *         - 400 BAD_REQUEST: Tham số không hợp lệ
      */
     @PatchMapping("/{id}/video-url")
     public ResponseEntity<Map<String, Object>> updateVideoUrl(
@@ -272,6 +297,10 @@ public class VideoController {
         } catch (VideoService.VideoNotFoundException e) {
             log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
             return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
+        } catch (SecurityException e) {
+            log.warn("[Tenant: {}] Access denied for video URL update - video ID: {}, error: {}", tenantId, id, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.FORBIDDEN);
 
         } catch (IllegalArgumentException e) {
             log.warn("[Tenant: {}] Invalid video URL for video ID {}: {}", tenantId, id, e.getMessage());
@@ -717,6 +746,58 @@ public class VideoController {
     }
 
     /**
+     * GET /api/v1/videos/staff-workload - Lấy thông tin workload của nhân viên
+     * 
+     * API mới để monitoring và debugging workload của từng nhân viên
+     * Hữu ích cho việc theo dõi và quản lý phân bổ công việc
+     *
+     * @param staffName Tên nhân viên cần kiểm tra (optional - nếu không có sẽ lấy từ JWT)
+     * @return ResponseEntity chứa thông tin workload chi tiết
+     */
+    @GetMapping("/staff-workload")
+    public ResponseEntity<Map<String, Object>> getStaffWorkload(
+            @RequestParam(required = false) String staffName) {
+        String tenantId = TenantContext.getTenantId();
+        
+        try {
+            // Nếu không có staffName thì lấy từ JWT của user hiện tại
+            String targetStaff = staffName;
+            if (!StringUtils.hasText(targetStaff)) {
+                targetStaff = jwtTokenService.getCurrentUserNameFromJwt();
+            }
+            
+            log.info("[Tenant: {}] Received request to get workload for staff: {}", tenantId, targetStaff);
+            
+            StaffWorkloadService.WorkloadInfo workloadInfo = staffWorkloadService.getWorkloadInfo(targetStaff);
+            
+            Map<String, Object> response = createSuccessResponse(
+                    String.format("Lấy thông tin workload của nhân viên '%s' thành công", targetStaff),
+                    Map.of(
+                            "assignedStaff", workloadInfo.getAssignedStaff(),
+                            "totalActive", workloadInfo.getTotalActive(),
+                            "breakdown", Map.of(
+                                    "dangLam", workloadInfo.getDangLamCount(),
+                                    "dangSua", workloadInfo.getDangSuaCount(),
+                                    "canSuaGap", workloadInfo.getCanSuaGapCount()
+                            ),
+                            "canAcceptNewTask", workloadInfo.isCanAcceptNewTask(),
+                            "maxConcurrentVideos", workloadInfo.getMaxConcurrentVideos(),
+                            "activeVideoIds", workloadInfo.getActiveVideos().stream()
+                                    .map(Video::getId)
+                                    .toList()
+                    )
+            );
+            response.put("tenantId", tenantId);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error getting staff workload: ", tenantId, e);
+            return createErrorResponse("Lỗi khi lấy thông tin workload: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
      * Helper method để tạo response thành công với format nhất quán
      *
      * @param message - Thông báo thành công
@@ -807,5 +888,19 @@ public class VideoController {
         String tenantId = TenantContext.getTenantId();
         log.warn("[Tenant: {}] Illegal argument exception: {}", tenantId, ex.getMessage());
         return createErrorResponse("Tham số không hợp lệ: " + ex.getMessage(), HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Exception handler cho SecurityException
+     * Xử lý các lỗi liên quan đến phân quyền truy cập
+     *
+     * @param ex - SecurityException
+     * @return ResponseEntity chứa thông tin lỗi với HTTP status 403 FORBIDDEN
+     */
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<Map<String, Object>> handleSecurityException(SecurityException ex) {
+        String tenantId = TenantContext.getTenantId();
+        log.warn("[Tenant: {}] Security exception - access denied: {}", tenantId, ex.getMessage());
+        return createErrorResponse("Không có quyền truy cập: " + ex.getMessage(), HttpStatus.FORBIDDEN);
     }
 }

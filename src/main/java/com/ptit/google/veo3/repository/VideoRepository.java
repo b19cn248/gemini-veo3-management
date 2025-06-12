@@ -90,4 +90,48 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
      */
     long countByAssignedStaffAndDeliveryStatus(String assignedStaff, DeliveryStatus deliveryStatus);
 
+    /**
+     * Đếm tổng số video đang trong quá trình làm việc của một nhân viên
+     * Bao gồm: DANG_LAM, DANG_SUA và video có deliveryStatus = CAN_SUA_GAP
+     * 
+     * Query này tính:
+     * - Video có status = DANG_LAM hoặc DANG_SUA 
+     * - Video có deliveryStatus = CAN_SUA_GAP (bất kể status)
+     * - Loại trừ duplicate (video có thể vừa DANG_SUA vừa CAN_SUA_GAP)
+     * 
+     * @param assignedStaff Tên nhân viên cần kiểm tra
+     * @return Tổng số video đang trong quá trình làm việc
+     */
+    @Query("""
+            SELECT COUNT(DISTINCT v.id) 
+            FROM Video v 
+            WHERE v.isDeleted = false 
+            AND v.assignedStaff = :assignedStaff 
+            AND (
+                v.status IN ('DANG_LAM', 'DANG_SUA') 
+                OR v.deliveryStatus = 'CAN_SUA_GAP'
+            )
+            """)
+    long countActiveWorkloadByAssignedStaff(@Param("assignedStaff") String assignedStaff);
+
+    /**
+     * Lấy chi tiết các video đang trong quá trình làm việc của một nhân viên
+     * Sử dụng để debugging và logging chi tiết
+     * 
+     * @param assignedStaff Tên nhân viên cần kiểm tra  
+     * @return Danh sách video đang active
+     */
+    @Query("""
+            SELECT v 
+            FROM Video v 
+            WHERE v.isDeleted = false 
+            AND v.assignedStaff = :assignedStaff 
+            AND (
+                v.status IN ('DANG_LAM', 'DANG_SUA') 
+                OR v.deliveryStatus = 'CAN_SUA_GAP'
+            )
+            ORDER BY v.createdAt DESC
+            """)
+    List<Video> findActiveWorkloadByAssignedStaff(@Param("assignedStaff") String assignedStaff);
+
 }

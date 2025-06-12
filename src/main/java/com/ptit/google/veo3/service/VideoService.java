@@ -36,6 +36,8 @@ import java.util.Optional;
 public class VideoService {
 
     private final VideoRepository videoRepository;
+    private final JwtTokenService jwtTokenService;
+    private final StaffWorkloadService staffWorkloadService;
 
     /**
      * Tạo mới một video record
@@ -69,6 +71,16 @@ public class VideoService {
 
     /**
      * Cập nhật nhân viên được giao cho video
+     * 
+     * BUSINESS RULES UPDATED:
+     * - Nhân viên tối đa được xử lý 3 video cùng lúc (tăng từ 2)
+     * - Video "active" bao gồm: DANG_LAM, DANG_SUA, hoặc CAN_SUA_GAP
+     * - Sử dụng StaffWorkloadService để kiểm tra workload tổng thể
+     * 
+     * @param id Video ID cần cập nhật
+     * @param assignedStaff Tên nhân viên được giao mới
+     * @return VideoResponseDto sau khi cập nhật
+     * @throws IllegalArgumentException nếu nhân viên đã đạt giới hạn workload
      */
     @Transactional
     public VideoResponseDto updateAssignedStaff(Long id, String assignedStaff) {
@@ -76,22 +88,29 @@ public class VideoService {
 
         Video existingVideo = findVideoByIdOrThrow(id);
 
-        // Validate assigned staff
+        // Validate assigned staff length
         if (assignedStaff != null && assignedStaff.trim().length() > 255) {
             throw new IllegalArgumentException("Tên nhân viên không được vượt quá 255 ký tự");
         }
 
-        // Check if staff already has 2 or more videos in progress
+        // NEW WORKLOAD VALIDATION LOGIC
+        // Kiểm tra workload tổng thể thay vì từng trạng thái riêng lẻ
         if (assignedStaff != null && !assignedStaff.trim().isEmpty()) {
-            long count = videoRepository.countByAssignedStaffAndStatus(assignedStaff.trim(), VideoStatus.DANG_LAM);
-            if (count >= 2) {
-                throw new IllegalArgumentException("Bạn đang nhận 2 đơn, hoàn thành trước khi nhận đơn mới");
-            }
-
-            // Check if staff has 2 or more videos that need urgent fixes
-            long urgentCount = videoRepository.countByAssignedStaffAndDeliveryStatus(assignedStaff.trim(), DeliveryStatus.CAN_SUA_GAP);
-            if (urgentCount >= 2) {
-                throw new IllegalArgumentException("Có 2 đơn cần sửa gấp, không thể nhận đơn");
+            try {
+                staffWorkloadService.validateCanAcceptNewTask(assignedStaff.trim());
+                
+                // Log workload info để monitoring
+                StaffWorkloadService.WorkloadInfo workloadInfo = 
+                        staffWorkloadService.getWorkloadInfo(assignedStaff.trim());
+                log.info("Staff '{}' workload before assignment: {} active videos (DANG_LAM: {}, DANG_SUA: {}, CAN_SUA_GAP: {})",
+                        assignedStaff.trim(), workloadInfo.getTotalActive(), 
+                        workloadInfo.getDangLamCount(), workloadInfo.getDangSuaCount(), 
+                        workloadInfo.getCanSuaGapCount());
+                        
+            } catch (IllegalArgumentException e) {
+                // Re-throw với context thêm về video đang cố gắng assign
+                log.warn("Cannot assign video ID {} to staff '{}': {}", id, assignedStaff.trim(), e.getMessage());
+                throw new IllegalArgumentException(e.getMessage());
             }
         }
 
@@ -107,18 +126,45 @@ public class VideoService {
         
         Video updatedVideo = videoRepository.save(existingVideo);
 
-        log.info("Assigned staff updated successfully for video ID: {}", id);
+        // Log successful assignment với workload info
+        if (assignedStaff != null && !assignedStaff.trim().isEmpty()) {
+            long newWorkload = staffWorkloadService.getCurrentWorkload(assignedStaff.trim());
+            log.info("Video ID {} successfully assigned to staff '{}'. New workload: {} videos", 
+                    id, assignedStaff.trim(), newWorkload);
+        } else {
+            log.info("Video ID {} unassigned from staff", id);
+        }
+
         return mapToResponseDto(updatedVideo);
     }
 
     /**
      * Cập nhật trạng thái video
+     * 
+     * PERMISSION LOGIC: Chỉ có nhân viên được giao video mới có quyền cập nhật trạng thái
+     * Kiểm tra bằng cách so sánh trường "name" từ JWT với assignedStaff của video
+     * 
+     * @param id Video ID cần cập nhật
+     * @param statusString Trạng thái mới 
+     * @return VideoResponseDto sau khi cập nhật
+     * @throws SecurityException nếu người dùng không có quyền
+     * @throws VideoNotFoundException nếu không tìm thấy video
+     * @throws IllegalArgumentException nếu tham số không hợp lệ
      */
     @Transactional
     public VideoResponseDto updateVideoStatus(Long id, String statusString) {
         log.info("Updating status for video ID: {} to status: {}", id, statusString);
 
         Video existingVideo = findVideoByIdOrThrow(id);
+        
+        // SECURITY CHECK: Kiểm tra quyền cập nhật video
+        if (!jwtTokenService.hasPermissionToUpdateVideo(existingVideo.getAssignedStaff())) {
+            String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
+            log.warn("User '{}' attempted to update video ID {} but is not authorized. Assigned staff: '{}'", 
+                    currentUser, id, existingVideo.getAssignedStaff());
+            throw new SecurityException("Bạn không có quyền cập nhật trạng thái video này. " +
+                    "Chỉ có nhân viên được giao video mới có thể cập nhật.");
+        }
 
         // Validate và convert status string to enum
         if (!StringUtils.hasText(statusString)) {
@@ -161,18 +207,38 @@ public class VideoService {
 
         Video updatedVideo = videoRepository.save(existingVideo);
 
-        log.info("Video status updated successfully for video ID: {} to status: {}", id, status);
+        log.info("Video status updated successfully for video ID: {} to status: {} by user: {}", 
+                id, status, jwtTokenService.getCurrentUserNameFromJwt());
         return mapToResponseDto(updatedVideo);
     }
 
     /**
      * Cập nhật link video
+     * 
+     * PERMISSION LOGIC: Chỉ có nhân viên được giao video mới có quyền cập nhật video URL
+     * Kiểm tra bằng cách so sánh trường "name" từ JWT với assignedStaff của video
+     * 
+     * @param id Video ID cần cập nhật
+     * @param videoUrl Link video mới
+     * @return VideoResponseDto sau khi cập nhật
+     * @throws SecurityException nếu người dùng không có quyền
+     * @throws VideoNotFoundException nếu không tìm thấy video
+     * @throws IllegalArgumentException nếu tham số không hợp lệ
      */
     @Transactional
     public VideoResponseDto updateVideoUrl(Long id, String videoUrl) {
         log.info("Updating video URL for video ID: {} to URL: {}", id, videoUrl);
 
         Video existingVideo = findVideoByIdOrThrow(id);
+        
+        // SECURITY CHECK: Kiểm tra quyền cập nhật video
+        if (!jwtTokenService.hasPermissionToUpdateVideo(existingVideo.getAssignedStaff())) {
+            String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
+            log.warn("User '{}' attempted to update video URL for video ID {} but is not authorized. Assigned staff: '{}'", 
+                    currentUser, id, existingVideo.getAssignedStaff());
+            throw new SecurityException("Bạn không có quyền cập nhật link video này. " +
+                    "Chỉ có nhân viên được giao video mới có thể cập nhật.");
+        }
 
         // Validate video URL
         if (videoUrl != null && videoUrl.length() > 500) {
@@ -182,7 +248,8 @@ public class VideoService {
         existingVideo.setVideoUrl(videoUrl != null ? videoUrl.trim() : null);
         Video updatedVideo = videoRepository.save(existingVideo);
 
-        log.info("Video URL updated successfully for video ID: {}", id);
+        log.info("Video URL updated successfully for video ID: {} by user: {}", 
+                id, jwtTokenService.getCurrentUserNameFromJwt());
         return mapToResponseDto(updatedVideo);
     }
 
