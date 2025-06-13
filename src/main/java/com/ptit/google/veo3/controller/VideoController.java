@@ -55,6 +55,7 @@ import java.util.Map;
  * - PUT    /api/v1/videos/{id}/payment-status  - Cập nhật trạng thái thanh toán
  * - GET    /api/v1/videos/staff-workload     - Lấy thông tin workload của nhân viên
  * - GET    /api/v1/videos/sales-salaries    - Tính lương sales theo ngày thanh toán (NEW API)
+ * - GET    /api/v1/videos/check-customer    - Kiểm tra khách hàng đã tồn tại (NEW API)
  */
 @RestController
 @RequestMapping("/api/v1/videos")
@@ -1167,5 +1168,57 @@ public class VideoController {
         String tenantId = TenantContext.getTenantId();
         log.warn("[Tenant: {}] Security exception - access denied: {}", tenantId, ex.getMessage());
         return createErrorResponse("Không có quyền truy cập: " + ex.getMessage(), HttpStatus.FORBIDDEN);
+    }
+
+    /**
+     * GET /api/v1/videos/check-customer - Kiểm tra khách hàng đã tồn tại trong hệ thống
+     * 
+     * API này được sử dụng khi tạo mới video để cảnh báo nếu tên khách hàng đã tồn tại,
+     * giúp tránh tình trạng trùng đơn hàng
+     * 
+     * @param customerName Tên khách hàng cần kiểm tra (required)
+     * @return ResponseEntity chứa thông tin về việc khách hàng có tồn tại hay không
+     *         - 200 OK: Trả về thông tin kiểm tra
+     *         - 400 BAD_REQUEST: Tên khách hàng không hợp lệ
+     */
+    @GetMapping("/check-customer")
+    public ResponseEntity<Map<String, Object>> checkCustomerExists(
+            @RequestParam String customerName) {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to check customer existence: {}", tenantId, customerName);
+
+        try {
+            // Validate input
+            if (customerName == null || customerName.trim().isEmpty()) {
+                return createErrorResponse("Tên khách hàng không được để trống", HttpStatus.BAD_REQUEST);
+            }
+
+            String trimmedCustomerName = customerName.trim();
+            if (trimmedCustomerName.length() < 2) {
+                return createErrorResponse("Tên khách hàng phải có ít nhất 2 ký tự", HttpStatus.BAD_REQUEST);
+            }
+
+            // Kiểm tra khách hàng đã tồn tại
+            boolean exists = videoService.checkCustomerExists(trimmedCustomerName);
+            
+            Map<String, Object> response = createSuccessResponse(
+                    exists ? "Khách hàng đã tồn tại trong hệ thống" : "Khách hàng chưa tồn tại trong hệ thống",
+                    Map.of(
+                            "customerName", trimmedCustomerName,
+                            "exists", exists,
+                            "warning", exists ? 
+                                String.format("Khách hàng '%s' đã tồn tại trong hệ thống, kiểm tra lại xem có thể bị trung đơn", trimmedCustomerName) : 
+                                null
+                    )
+            );
+            response.put("tenantId", tenantId);
+
+            log.info("[Tenant: {}] Customer '{}' existence check result: {}", tenantId, trimmedCustomerName, exists);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error checking customer existence for '{}': ", tenantId, customerName, e);
+            return createErrorResponse("Lỗi khi kiểm tra khách hàng: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

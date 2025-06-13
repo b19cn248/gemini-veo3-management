@@ -660,6 +660,48 @@ public class VideoService {
         log.info("Found salary information for {} staff members", salaries.size());
         return salaries;
     }
+
+    /**
+     * Kiểm tra khách hàng đã tồn tại trong hệ thống hay chưa
+     * 
+     * Business Logic:
+     * - Tìm kiếm khách hàng theo tên (case-insensitive, exact match)
+     * - Chỉ kiểm tra các video chưa bị xóa (isDeleted = false)
+     * - Trả về true nếu tìm thấy ít nhất 1 video của khách hàng
+     * 
+     * @param customerName Tên khách hàng cần kiểm tra
+     * @return true nếu khách hàng đã tồn tại, false nếu chưa tồn tại
+     * @throws IllegalArgumentException nếu tên khách hàng không hợp lệ
+     */
+    public boolean checkCustomerExists(String customerName) {
+        if (customerName == null || customerName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên khách hàng không được để trống");
+        }
+
+        String trimmedName = customerName.trim();
+        if (trimmedName.length() < 2) {
+            throw new IllegalArgumentException("Tên khách hàng phải có ít nhất 2 ký tự");
+        }
+
+        log.info("Checking if customer exists: '{}'", trimmedName);
+        
+        // Sử dụng method có sẵn để tìm kiếm khách hàng
+        List<Video> existingVideos = videoRepository.findByCustomerNameContainingIgnoreCase(trimmedName);
+        
+        // Lọc ra những video chưa bị xóa và có tên khách hàng chính xác (exact match, case-insensitive)
+        boolean exists = existingVideos.stream()
+                .filter(video -> !video.getIsDeleted()) // Chỉ kiểm tra video chưa bị xóa
+                .anyMatch(video -> video.getCustomerName() != null && 
+                         video.getCustomerName().trim().equalsIgnoreCase(trimmedName));
+
+        log.info("Customer '{}' existence check result: {}", trimmedName, exists);
+        
+        if (exists) {
+            log.info("Found existing customer '{}' in system - potential duplicate order warning", trimmedName);
+        }
+        
+        return exists;
+    }
     /**
      * Tính lương sales theo ngày thanh toán - UPDATED với Interface Projection
      * 
@@ -860,7 +902,6 @@ public class VideoService {
                 .paymentStatus(video.getPaymentStatus())
                 .paymentDate(video.getPaymentDate())
                 .orderValue(video.getOrderValue())
-                .price(video.getPrice())
                 .build();
     }
 
