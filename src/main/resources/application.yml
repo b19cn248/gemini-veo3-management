@@ -109,4 +109,4 @@ app:
   video:
     # Số phút timeout để tự động reset video về trạng thái chưa ai nhận
     # Mặc định 15 phút theo yêu cầu business
-    assignment-timeout-minutes: 15
+    assignment-timeout-minutes: 120
