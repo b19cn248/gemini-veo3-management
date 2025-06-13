@@ -134,4 +134,45 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
             """)
     List<Video> findActiveWorkloadByAssignedStaff(@Param("assignedStaff") String assignedStaff);
 
+    /**
+     * Tìm các video đã quá thời hạn và cần được auto-reset
+     * Video được coi là quá hạn nếu:
+     * 1. Đã được assign (assignedAt không null, assignedStaff không null)
+     * 2. Đang trong trạng thái DANG_LAM hoặc DANG_SUA
+     * 3. Thời gian assign đã quá số phút được chỉ định
+     * 
+     * @param timeoutMinutes Số phút timeout (thường là 15)
+     * @return Danh sách video cần được reset
+     */
+    @Query("""
+            SELECT v 
+            FROM Video v 
+            WHERE v.isDeleted = false 
+            AND v.assignedAt IS NOT NULL 
+            AND v.assignedStaff IS NOT NULL 
+            AND v.assignedStaff != ''
+            AND v.status IN ('DANG_LAM', 'DANG_SUA') 
+            AND v.assignedAt < :expiredTime
+            ORDER BY v.assignedAt ASC
+            """)
+    List<Video> findExpiredAssignedVideos(@Param("expiredTime") LocalDateTime expiredTime);
+
+    /**
+     * Đếm số lượng video đã quá hạn - dùng cho monitoring
+     * 
+     * @param expiredTime Thời điểm bắt đầu tính là quá hạn
+     * @return Số lượng video quá hạn
+     */
+    @Query("""
+            SELECT COUNT(v) 
+            FROM Video v 
+            WHERE v.isDeleted = false 
+            AND v.assignedAt IS NOT NULL 
+            AND v.assignedStaff IS NOT NULL 
+            AND v.assignedStaff != ''
+            AND v.status IN ('DANG_LAM', 'DANG_SUA') 
+            AND v.assignedAt < :expiredTime
+            """)
+    long countExpiredAssignedVideos(@Param("expiredTime") LocalDateTime expiredTime);
+
 }

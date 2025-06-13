@@ -26,6 +26,7 @@ public class VideoResponseDto {
     private Integer videoDuration; // Thời lượng video tính theo giây
     private LocalDateTime deliveryTime;
     private String assignedStaff;
+    private LocalDateTime assignedAt; // Thời gian được assign cho nhân viên
     private VideoStatus status;
     private String videoUrl;
     private LocalDateTime completedTime;
@@ -38,6 +39,7 @@ public class VideoResponseDto {
     private PaymentStatus paymentStatus;
     private LocalDateTime paymentDate;
     private BigDecimal orderValue;
+    private BigDecimal price; // Giá bán video cho khách hàng
     private String createdBy;
 
     /**

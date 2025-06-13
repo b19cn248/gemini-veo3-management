@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+    Migration: Thêm trường price vào bảng videos
+    Mục đích: Lưu trữ giá bán video dựa trên order_value
+    
+    Business Logic:
+    - order_value = 15000 → price = 30000 (tỷ lệ x2)
+    - order_value = 45000 → price = 150000 (tỷ lệ x3.33)
+    - order_value = 65000 → price = 200000 (tỷ lệ x3.08)
+    - order_value = 100000 → price = 250000 (tỷ lệ x2.5)
+    -->
+
+    <changeSet id="add-price-field-to-videos" author="system">
+        <comment>Thêm trường price vào bảng videos để lưu giá bán video</comment>
+        
+        <addColumn tableName="videos">
+            <column name="price" type="DECIMAL(15,2)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        
+        <rollback>
+            <dropColumn tableName="videos" columnName="price"/>
+        </rollback>
+    </changeSet>
+
+    <!--
+    Migration: Cập nhật giá trị price cho các video hiện có
+    Áp dụng business rule để set price dựa trên order_value
+    -->
+    <changeSet id="update-existing-videos-price" author="system">
+        <comment>Cập nhật giá trị price cho các video hiện có dựa trên order_value</comment>
+        
+        <!-- order_value = 15000 → price = 30000 -->
+        <update tableName="videos">
+            <column name="price" value="30000.00"/>
+            <where>order_value = 15000.00</where>
+        </update>
+        
+        <!-- order_value = 45000 → price = 150000 -->
+        <update tableName="videos">
+            <column name="price" value="150000.00"/>
+            <where>order_value = 45000.00</where>
+        </update>
+        
+        <!-- order_value = 65000 → price = 200000 -->
+        <update tableName="videos">
+            <column name="price" value="200000.00"/>
+            <where>order_value = 65000.00</where>
+        </update>
+        
+        <!-- order_value = 100000 → price = 250000 -->
+        <update tableName="videos">
+            <column name="price" value="250000.00"/>
+            <where>order_value = 100000.00</where>
+        </update>
+        
+        <rollback>
+            <!-- Reset price values to null -->
+            <update tableName="videos">
+                <column name="price" valueNumeric="null"/>
+                <where>price IS NOT NULL</where>
+            </update>
+        </rollback>
+    </changeSet>
+
+    <!--
+    Migration: Thêm index cho trường price để tối ưu query performance
+    Index này hữu ích cho việc query, filter, sort theo price
+    -->
+    <changeSet id="add-index-price" author="system">
+        <comment>Thêm index cho trường price để tối ưu query performance</comment>
+        
+        <createIndex tableName="videos" indexName="idx_videos_price">
+            <column name="price"/>
+        </createIndex>
+        
+        <rollback>
+            <dropIndex tableName="videos" indexName="idx_videos_price"/>
+        </rollback>
+    </changeSet>
+
+    <!--
+    Migration: Thêm composite index cho order_value và price
+    Hữu ích cho việc query kết hợp giữa cost và selling price
+    -->
+    <changeSet id="add-composite-index-order-value-price" author="system">
+        <comment>Thêm composite index cho order_value và price</comment>
+        
+        <createIndex tableName="videos" indexName="idx_videos_order_value_price">
+            <column name="order_value"/>
+            <column name="price"/>
+        </createIndex>
+        
+        <rollback>
+            <dropIndex tableName="videos" indexName="idx_videos_order_value_price"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

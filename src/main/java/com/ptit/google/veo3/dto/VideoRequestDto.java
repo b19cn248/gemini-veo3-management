@@ -62,4 +62,10 @@ public class VideoRequestDto {
     private LocalDateTime paymentDate;
 
     private BigDecimal orderValue;
+
+    /**
+     * Giá bán video cho khách hàng
+     * Thường được tự động tính từ orderValue, nhưng có thể override manual
+     */
+    private BigDecimal price;
 }

@@ -11,6 +11,8 @@ import com.ptit.google.veo3.multitenant.TenantContext;
 import com.ptit.google.veo3.service.JwtTokenService;
 import com.ptit.google.veo3.service.StaffWorkloadService;
 import com.ptit.google.veo3.service.VideoService;
+import com.ptit.google.veo3.service.VideoAutoResetService;
+import com.ptit.google.veo3.util.VideoPricingUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +64,7 @@ public class VideoController {
     private final VideoService videoService;
     private final JwtTokenService jwtTokenService;
     private final StaffWorkloadService staffWorkloadService;
+    private final VideoAutoResetService videoAutoResetService;
 
     /**
      * POST /api/v1/videos - Tạo mới video
@@ -81,22 +84,34 @@ public class VideoController {
 
             Integer time = requestDto.getVideoDuration();
 
-            Integer price = 0;
+            Integer orderValueInt = 0;
 
             if (time == 8) {
-                price = 15000;
+                orderValueInt = 15000;
             }
             if (time == 16) {
-                price = 45000;
+                orderValueInt = 45000;
             }
             if (time == 24) {
-                price = 65000;
+                orderValueInt = 65000;
             }
             if (time == 32) {
-                price = 100000;
+                orderValueInt = 100000;
             }
 
-            requestDto.setOrderValue(BigDecimal.valueOf(price));
+            BigDecimal orderValue = BigDecimal.valueOf(orderValueInt);
+            requestDto.setOrderValue(orderValue);
+            
+            // AUTO-CALCULATE PRICE: Sử dụng VideoPricingUtil để tính price
+            BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(orderValue);
+            if (calculatedPrice != null) {
+                requestDto.setPrice(calculatedPrice);
+                log.info("[Tenant: {}] Auto-calculated price {} for order value {} (customer: {})", 
+                        tenantId, calculatedPrice, orderValue, requestDto.getCustomerName());
+            } else {
+                log.warn("[Tenant: {}] No pricing rule found for order value {} (customer: {})", 
+                        tenantId, orderValue, requestDto.getCustomerName());
+            }
 
             VideoResponseDto createdVideo = videoService.createVideo(requestDto);
 
@@ -132,22 +147,34 @@ public class VideoController {
 
         Integer time = requestDto.getVideoDuration();
 
-        Integer price = 0;
+        Integer orderValueInt = 0;
 
         if (time == 8) {
-            price = 15000;
+            orderValueInt = 15000;
         }
         if (time == 16) {
-            price = 45000;
+            orderValueInt = 45000;
         }
         if (time == 24) {
-            price = 65000;
+            orderValueInt = 65000;
         }
         if (time == 32) {
-            price = 100000;
+            orderValueInt = 100000;
         }
 
-        requestDto.setOrderValue(BigDecimal.valueOf(price));
+        BigDecimal orderValue = BigDecimal.valueOf(orderValueInt);
+        requestDto.setOrderValue(orderValue);
+        
+        // AUTO-CALCULATE PRICE: Sử dụng VideoPricingUtil để tính price
+        BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(orderValue);
+        if (calculatedPrice != null) {
+            requestDto.setPrice(calculatedPrice);
+            log.info("[Tenant: {}] Auto-calculated price {} for order value {} during update (video ID: {})", 
+                    tenantId, calculatedPrice, orderValue, id);
+        } else {
+            log.warn("[Tenant: {}] No pricing rule found for order value {} during update (video ID: {})", 
+                    tenantId, orderValue, id);
+        }
 
         try {
             VideoResponseDto updatedVideo = videoService.updateVideo(id, requestDto);
@@ -796,6 +823,142 @@ public class VideoController {
             return createErrorResponse("Lỗi khi lấy thông tin workload: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    /**
+     * GET /api/v1/videos/auto-reset/status - Lấy thông tin trạng thái auto-reset system
+     * 
+     * API monitoring để kiểm tra:
+     * - Số lượng video hiện tại đang quá hạn
+     * - Thời gian timeout được cấu hình
+     * - Thông tin về lần chạy scheduled job gần nhất
+     *
+     * @return ResponseEntity chứa thông tin trạng thái auto-reset system
+     */
+    @GetMapping("/auto-reset/status")
+    public ResponseEntity<Map<String, Object>> getAutoResetStatus() {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get auto-reset status", tenantId);
+        
+        try {
+            long expiredVideoCount = videoAutoResetService.getExpiredVideoCount();
+            List<Video> expiredVideos = videoAutoResetService.getExpiredVideos();
+            
+            Map<String, Object> response = createSuccessResponse(
+                    "Lấy thông tin trạng thái auto-reset thành công",
+                    Map.of(
+                            "expiredVideoCount", expiredVideoCount,
+                            "expiredVideos", expiredVideos.stream()
+                                    .map(v -> Map.of(
+                                            "id", v.getId(),
+                                            "assignedStaff", v.getAssignedStaff(),
+                                            "assignedAt", v.getAssignedAt(),
+                                            "status", v.getStatus(),
+                                            "customerName", v.getCustomerName()
+                                    ))
+                                    .toList(),
+                            "systemStatus", "ACTIVE"
+                    )
+            );
+            response.put("tenantId", tenantId);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error getting auto-reset status: ", tenantId, e);
+            return createErrorResponse("Lỗi khi lấy thông tin auto-reset: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * POST /api/v1/videos/{id}/manual-reset - Reset manual một video cụ thể
+     * 
+     * API admin để reset manual video về trạng thái CHUA_AI_NHAN
+     * Hữu ích cho testing hoặc xử lý exception cases
+     *
+     * @param id ID của video cần reset
+     * @return ResponseEntity chứa kết quả reset
+     */
+    @PostMapping("/{id}/manual-reset")
+    public ResponseEntity<Map<String, Object>> manualResetVideo(@PathVariable Long id) {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to manual reset video ID: {}", tenantId, id);
+        
+        try {
+            boolean resetSuccess = videoAutoResetService.manualResetVideo(id);
+            
+            if (resetSuccess) {
+                Map<String, Object> response = createSuccessResponse(
+                        String.format("Video ID %d đã được reset thành công", id),
+                        Map.of("videoId", id, "resetStatus", "SUCCESS")
+                );
+                response.put("tenantId", tenantId);
+                return ResponseEntity.ok(response);
+            } else {
+                return createErrorResponse(
+                        String.format("Không thể reset video ID %d (có thể video không tồn tại hoặc chưa được assign)", id), 
+                        HttpStatus.BAD_REQUEST);
+            }
+            
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error manual resetting video ID {}: ", tenantId, id, e);
+            return createErrorResponse("Lỗi khi reset video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/videos/pricing-rules - Lấy tất cả pricing rules hiện tại
+     * 
+     * API utility để xem mapping giữa order_value và price
+     * Hữu ích cho documentation, testing và admin dashboard
+     *
+     * @return ResponseEntity chứa tất cả pricing rules
+     */
+//    @GetMapping("/pricing-rules")
+//    public ResponseEntity<Map<String, Object>> getPricingRules() {
+//        String tenantId = TenantContext.getTenantId();
+//        log.info("[Tenant: {}] Received request to get pricing rules", tenantId);
+//
+//        try {
+//            Map<BigDecimal, BigDecimal> pricingRules = VideoPricingUtil.getAllPricingRules();
+//
+//            // Convert to more readable format
+//            List<Map<String, Object>> rulesList = pricingRules.entrySet().stream()
+//                    .map(entry -> {
+//                        BigDecimal orderValue = entry.getKey();
+//                        BigDecimal price = entry.getValue();
+//                        BigDecimal margin = VideoPricingUtil.calculateProfitMargin(orderValue, price);
+//
+//                        return Map.of(
+//                                "orderValue", orderValue,
+//                                "price", price,
+//                                "profitMargin", margin != null ? margin.toString() + "%" : "N/A",
+//                                "description", String.format("Cost %s → Sell %s", orderValue, price)
+//                        );
+//                    })
+//                    .sorted((a, b) -> ((BigDecimal) a.get("orderValue")).compareTo((BigDecimal) b.get("orderValue")))
+//                    .toList();
+//
+//            Map<String, Object> response = createSuccessResponse(
+//                    "Lấy pricing rules thành công",
+//                    Map.of(
+//                            "totalRules", pricingRules.size(),
+//                            "rules", rulesList,
+//                            "businessLogic", Map.of(
+//                                    "description", "Pricing based on video duration and complexity",
+//                                    "note", "Price is automatically calculated from order_value",
+//                                    "lastUpdated", "2025-06-13"
+//                            )
+//                    )
+//            );
+//            response.put("tenantId", tenantId);
+//
+//            return ResponseEntity.ok(response);
+//
+//        } catch (Exception e) {
+//            log.error("[Tenant: {}] Error getting pricing rules: ", tenantId, e);
+//            return createErrorResponse("Lỗi khi lấy pricing rules: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+//        }
+//    }
 
     /**
      * Helper method để tạo response thành công với format nhất quán

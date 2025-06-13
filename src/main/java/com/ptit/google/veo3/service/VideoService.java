@@ -8,6 +8,7 @@ import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.entity.VideoStatus;
 import com.ptit.google.veo3.repository.VideoRepository;
+import com.ptit.google.veo3.util.VideoPricingUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -41,31 +43,90 @@ public class VideoService {
 
     /**
      * Tạo mới một video record
+     * 
+     * BUSINESS LOGIC UPDATED:
+     * - Tự động tính price dựa trên orderValue
+     * - Validate pricing consistency
+     * - Log pricing information cho audit trail
      */
     @Transactional
     public VideoResponseDto createVideo(VideoRequestDto requestDto) {
         log.info("Creating new video for customer: {}", requestDto.getCustomerName());
 
         Video video = mapToEntity(requestDto);
+        
+        // PRICING LOGIC: Tự động tính price dựa trên orderValue
+        if (video.getOrderValue() != null) {
+            BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(video.getOrderValue());
+            
+            if (calculatedPrice != null) {
+                video.setPrice(calculatedPrice);
+                log.info("Auto-calculated price {} for order value {} (customer: {})", 
+                        calculatedPrice, video.getOrderValue(), requestDto.getCustomerName());
+            } else {
+                log.warn("No pricing rule found for order value {} (customer: {})", 
+                        video.getOrderValue(), requestDto.getCustomerName());
+                
+                // Nếu client gửi price manual và không có auto-calculation, sử dụng price từ request
+                if (requestDto.getPrice() != null) {
+                    video.setPrice(requestDto.getPrice());
+                    log.info("Using manual price {} for order value {} (customer: {})", 
+                            requestDto.getPrice(), video.getOrderValue(), requestDto.getCustomerName());
+                }
+            }
+        } else if (requestDto.getPrice() != null) {
+            // Nếu không có orderValue nhưng có price, sử dụng price từ request
+            video.setPrice(requestDto.getPrice());
+            log.info("Using manual price {} without order value (customer: {})", 
+                    requestDto.getPrice(), requestDto.getCustomerName());
+        }
+        
         Video savedVideo = videoRepository.save(video);
 
-        log.info("Video created successfully with ID: {}", savedVideo.getId());
+        log.info("Video created successfully with ID: {}, order value: {}, price: {}", 
+                savedVideo.getId(), savedVideo.getOrderValue(), savedVideo.getPrice());
         return mapToResponseDto(savedVideo);
     }
 
     /**
      * Cập nhật thông tin video
+     * 
+     * BUSINESS LOGIC UPDATED:
+     * - Recalculate price khi orderValue thay đổi
+     * - Preserve existing price nếu không có rule tương ứng
+     * - Log pricing changes cho audit trail
      */
     @Transactional
     public VideoResponseDto updateVideo(Long id, VideoRequestDto requestDto) {
         log.info("Updating video with ID: {}", id);
 
         Video existingVideo = findVideoByIdOrThrow(id);
+        
+        // Lưu lại giá trị cũ để logging
+        BigDecimal oldOrderValue = existingVideo.getOrderValue();
+        BigDecimal oldPrice = existingVideo.getPrice();
+        
         updateVideoFields(existingVideo, requestDto);
-
+        
+        // PRICING LOGIC: Recalculate price nếu orderValue thay đổi
+        BigDecimal newOrderValue = existingVideo.getOrderValue();
+        if (newOrderValue != null && !newOrderValue.equals(oldOrderValue)) {
+            BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(newOrderValue);
+            
+            if (calculatedPrice != null) {
+                existingVideo.setPrice(calculatedPrice);
+                log.info("Updated price from {} to {} due to order value change from {} to {} (video ID: {})", 
+                        oldPrice, calculatedPrice, oldOrderValue, newOrderValue, id);
+            } else {
+                log.warn("No pricing rule found for new order value {} (video ID: {}), keeping existing price {}", 
+                        newOrderValue, id, existingVideo.getPrice());
+            }
+        }
+        
         Video updatedVideo = videoRepository.save(existingVideo);
 
-        log.info("Video updated successfully with ID: {}", id);
+        log.info("Video updated successfully with ID: {}, order value: {}, price: {}", 
+                id, updatedVideo.getOrderValue(), updatedVideo.getPrice());
         return mapToResponseDto(updatedVideo);
     }
 
@@ -116,12 +177,14 @@ public class VideoService {
 
         existingVideo.setAssignedStaff(assignedStaff != null ? assignedStaff.trim() : null);
         
-        // Tự động chuyển trạng thái sang DANG_LAM khi gán nhân viên
+        // Tự động chuyển trạng thái sang DANG_LAM khi gán nhân viên và set thời gian assign
         if (assignedStaff != null && !assignedStaff.trim().isEmpty()) {
             existingVideo.setStatus(VideoStatus.DANG_LAM);
+            existingVideo.setAssignedAt(LocalDateTime.now()); // Lưu thời gian assign
         } else {
-            // Nếu không có nhân viên được gán thì chuyển về CHUA_AI_NHAN
+            // Nếu không có nhân viên được gán thì chuyển về CHUA_AI_NHAN và clear assignedAt
             existingVideo.setStatus(VideoStatus.CHUA_AI_NHAN);
+            existingVideo.setAssignedAt(null);
         }
         
         Video updatedVideo = videoRepository.save(existingVideo);
@@ -672,6 +735,8 @@ public class VideoService {
                 });
         Optional.ofNullable(requestDto.getOrderValue())
                 .ifPresent(existingVideo::setOrderValue);
+        Optional.ofNullable(requestDto.getPrice())
+                .ifPresent(existingVideo::setPrice);
     }
 
     /**
@@ -695,6 +760,7 @@ public class VideoService {
                 .paymentStatus(dto.getPaymentStatus())
                 .paymentDate(dto.getPaymentDate())
                 .orderValue(dto.getOrderValue())
+                .price(dto.getPrice()) // Thêm mapping cho price
                 .build();
     }
 
@@ -711,6 +777,7 @@ public class VideoService {
                 .videoDuration(video.getVideoDuration())
                 .deliveryTime(video.getDeliveryTime())
                 .assignedStaff(video.getAssignedStaff())
+                .assignedAt(video.getAssignedAt()) // Thêm field assignedAt
                 .status(video.getStatus())
                 .videoUrl(video.getVideoUrl())
                 .completedTime(video.getCompletedTime())
@@ -723,6 +790,7 @@ public class VideoService {
                 .paymentStatus(video.getPaymentStatus())
                 .paymentDate(video.getPaymentDate())
                 .orderValue(video.getOrderValue())
+                .price(video.getPrice()) // Thêm mapping cho price
                 .build();
     }
 

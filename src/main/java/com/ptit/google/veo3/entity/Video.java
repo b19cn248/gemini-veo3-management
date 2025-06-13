@@ -63,6 +63,13 @@ public class Video extends BaseEntity {
     private LocalDateTime deliveryTime;
 
     /**
+     * Thời gian được assign cho nhân viên
+     * Dùng để tracking và auto-reset video sau 15 phút không hoàn thành
+     */
+    @Column(name = "assigned_at")
+    private LocalDateTime assignedAt;
+
+    /**
      * Nhân viên được giao nhiệm vụ
      */
     @Column(name = "assigned_staff", length = 255)
@@ -140,6 +147,13 @@ public class Video extends BaseEntity {
     private BigDecimal orderValue;
 
     /**
+     * Giá bán video cho khách hàng
+     * Được tính dựa trên order_value theo business rules
+     */
+    @Column(name = "price", precision = 15, scale = 2)
+    private BigDecimal price;
+
+    /**
      * Quan hệ Many-to-One với User (người được giao)
      * OPTIONAL: Có thể null nếu chưa assign cho ai
      * Sử dụng LAZY loading để tối ưu performance
@@ -157,6 +171,7 @@ public class Video extends BaseEntity {
     public void assignToUser(User user) {
         this.assignedUser = user;
         this.assignedStaff = user != null ? user.getDisplayName() : null;
+        this.assignedAt = user != null ? LocalDateTime.now() : null;
         if (this.status == VideoStatus.CHUA_AI_NHAN) {
             this.status = VideoStatus.DANG_LAM;
         }
@@ -168,7 +183,38 @@ public class Video extends BaseEntity {
     public void unassign() {
         this.assignedUser = null;
         this.assignedStaff = null;
+        this.assignedAt = null;
         this.status = VideoStatus.CHUA_AI_NHAN;
+    }
+
+    /**
+     * Business method: Auto-reset video khi quá thời hạn làm việc
+     * Được gọi bởi scheduled job
+     */
+    public void autoReset() {
+        this.assignedUser = null;
+        this.assignedStaff = null;
+        this.assignedAt = null;
+        this.status = VideoStatus.CHUA_AI_NHAN;
+    }
+
+    /**
+     * Business method: Kiểm tra video có quá hạn làm việc không
+     * @param timeoutMinutes Số phút timeout (mặc định 15)
+     * @return true nếu video đã quá hạn
+     */
+    public boolean isAssignmentExpired(int timeoutMinutes) {
+        if (this.assignedAt == null || this.assignedStaff == null || this.assignedStaff.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Chỉ check timeout cho video đang trong trạng thái làm việc
+        if (this.status != VideoStatus.DANG_LAM && this.status != VideoStatus.DANG_SUA) {
+            return false;
+        }
+        
+        LocalDateTime expiredTime = this.assignedAt.plusMinutes(timeoutMinutes);
+        return LocalDateTime.now().isAfter(expiredTime);
     }
 
     /**

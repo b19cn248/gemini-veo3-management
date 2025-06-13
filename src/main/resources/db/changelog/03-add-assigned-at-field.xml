@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+    Migration: Thêm field assigned_at để tracking thời gian assign video cho nhân viên
+    Mục đích: Hỗ trợ logic auto-reset video sau 15 phút không hoàn thành
+    -->
+
+    <changeSet id="add-assigned-at-field" author="system">
+        <comment>Thêm trường assigned_at để tracking thời gian assign video cho nhân viên</comment>
+        
+        <addColumn tableName="videos">
+            <column name="assigned_at" type="DATETIME">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        
+        <rollback>
+            <dropColumn tableName="videos" columnName="assigned_at"/>
+        </rollback>
+    </changeSet>
+
+    <!--
+    Migration: Thêm index cho field assigned_at để tối ưu query performance
+    Scheduled job sẽ thường xuyên query theo field này
+    -->
+    <changeSet id="add-index-assigned-at" author="system">
+        <comment>Thêm index cho trường assigned_at để tối ưu performance scheduled job</comment>
+        
+        <createIndex tableName="videos" indexName="idx_videos_assigned_at">
+            <column name="assigned_at"/>
+        </createIndex>
+        
+        <rollback>
+            <dropIndex tableName="videos" indexName="idx_videos_assigned_at"/>
+        </rollback>
+    </changeSet>
+
+    <!--
+    Migration: Thêm composite index cho query tối ưu hơn
+    Scheduled job sẽ query theo (assigned_at, status, is_deleted)
+    -->
+    <changeSet id="add-composite-index-auto-reset" author="system">
+        <comment>Thêm composite index cho auto-reset video query optimization</comment>
+        
+        <createIndex tableName="videos" indexName="idx_videos_auto_reset">
+            <column name="assigned_at"/>
+            <column name="status"/>
+            <column name="is_deleted"/>
+        </createIndex>
+        
+        <rollback>
+            <dropIndex tableName="videos" indexName="idx_videos_auto_reset"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
