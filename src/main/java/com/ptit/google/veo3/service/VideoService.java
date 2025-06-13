@@ -317,8 +317,45 @@ public class VideoService {
     }
 
     /**
-     * Xóa video theo ID
+     * Hủy video - Reset về trạng thái chưa ai nhận (ADMIN ONLY)
+     * 
+     * SECURITY: Chỉ có admin mới có quyền hủy video
+     * BUSINESS LOGIC: Reset assignedStaff = null, assignedAt = null, status = CHUA_AI_NHAN
+     * 
+     * @param id Video ID cần hủy
+     * @return VideoResponseDto sau khi hủy
+     * @throws SecurityException nếu không phải admin
+     * @throws VideoNotFoundException nếu không tìm thấy video
      */
+    @Transactional
+    public VideoResponseDto cancelVideo(Long id) {
+        log.info("Admin canceling video with ID: {}", id);
+
+        // SECURITY CHECK: Chỉ admin mới có quyền hủy video
+        if (!jwtTokenService.isCurrentUserAdmin()) {
+            String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
+            log.warn("User '{}' attempted to cancel video ID {} but is not admin", currentUser, id);
+            throw new SecurityException("Chỉ có admin mới có quyền hủy video");
+        }
+
+        Video existingVideo = findVideoByIdOrThrow(id);
+        
+        // Log trước khi hủy để audit trail
+        log.info("Canceling video ID: {}, current assigned staff: '{}', status: {}", 
+                id, existingVideo.getAssignedStaff(), existingVideo.getStatus());
+
+        // Reset video về trạng thái ban đầu
+        existingVideo.setAssignedStaff(null);
+        existingVideo.setAssignedAt(null);
+        existingVideo.setStatus(VideoStatus.CHUA_AI_NHAN);
+
+        Video canceledVideo = videoRepository.save(existingVideo);
+
+        String adminUser = jwtTokenService.getCurrentUserNameFromJwt();
+        log.info("Video ID: {} successfully canceled by admin: '{}'", id, adminUser);
+        
+        return mapToResponseDto(canceledVideo);
+    }
     @Transactional
     public void deleteVideo(Long id) {
         log.info("Deleting video with ID: {}", id);

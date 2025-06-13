@@ -340,11 +340,48 @@ public class VideoController {
     }
 
     /**
-     * DELETE /api/v1/videos/{id} - Xóa video
+     * POST /api/v1/videos/{id}/cancel - Hủy video (ADMIN ONLY)
+     * 
+     * Reset video về trạng thái CHUA_AI_NHAN và assignedStaff = null
+     * 
+     * SECURITY: Chỉ có admin mới có quyền sử dụng API này
+     * BUSINESS LOGIC: Reset video về trạng thái ban đầu
      *
-     * @param id - ID của video cần xóa
-     * @return ResponseEntity chứa thông báo xóa thành công hoặc thông báo lỗi
+     * @param id ID của video cần hủy
+     * @return ResponseEntity chứa thông tin video sau khi hủy hoặc thông báo lỗi
+     *         - 200 OK: Hủy thành công
+     *         - 403 FORBIDDEN: Không phải admin
+     *         - 404 NOT_FOUND: Không tìm thấy video
      */
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<Map<String, Object>> cancelVideo(@PathVariable Long id) {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to cancel video ID: {}", tenantId, id);
+
+        try {
+            VideoResponseDto canceledVideo = videoService.cancelVideo(id);
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Video đã được hủy thành công",
+                    canceledVideo
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("[Tenant: {}] Video not found with ID: {}", tenantId, id);
+            return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
+
+        } catch (SecurityException e) {
+            log.warn("[Tenant: {}] Access denied for video cancel - video ID: {}, error: {}", 
+                    tenantId, id, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.FORBIDDEN);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error canceling video ID {}: ", tenantId, id, e);
+            return createErrorResponse("Lỗi khi hủy video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, Object>> deleteVideo(@PathVariable Long id) {
         String tenantId = TenantContext.getTenantId();

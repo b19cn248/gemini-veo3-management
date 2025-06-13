@@ -129,11 +129,72 @@ public class JwtTokenService {
     }
     
     /**
-     * Kiểm tra xem người dùng hiện tại có quyền cập nhật video không
+     * Kiểm tra xem người dùng hiện tại có quyền admin không
      * 
-     * @param assignedStaff Tên nhân viên được giao trong video
-     * @return true nếu người dùng có quyền cập nhật, false nếu không
+     * @return true nếu người dùng có role admin, false nếu không
      */
+    public boolean isCurrentUserAdmin() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            
+            if (authentication == null) {
+                log.warn("No authentication found in SecurityContext");
+                return false;
+            }
+            
+            if (!(authentication instanceof JwtAuthenticationToken jwtAuthToken)) {
+                log.warn("Authentication is not a JwtAuthenticationToken");
+                return false;
+            }
+            
+            Jwt jwt = jwtAuthToken.getToken();
+            if (jwt == null) {
+                log.warn("JWT token is null in authentication");
+                return false;
+            }
+            
+            // Extract roles từ JWT token
+            // Kiểm tra nhiều claim có thể chứa roles
+            Object rolesObj = jwt.getClaim("roles");
+            if (rolesObj == null) {
+                rolesObj = jwt.getClaim("authorities");
+            }
+            if (rolesObj == null) {
+                rolesObj = jwt.getClaim("realm_access");
+            }
+            
+            boolean isAdmin = false;
+            
+            // Xử lý different role formats
+            if (rolesObj instanceof java.util.List<?> rolesList) {
+                isAdmin = rolesList.stream()
+                        .map(Object::toString)
+                        .anyMatch(role -> role.equalsIgnoreCase("admin") || 
+                                         role.equalsIgnoreCase("ROLE_ADMIN") ||
+                                         role.equalsIgnoreCase("ADMIN"));
+            } else if (rolesObj instanceof String rolesString) {
+                isAdmin = rolesString.toLowerCase().contains("admin");
+            } else if (rolesObj instanceof java.util.Map<?, ?> rolesMap) {
+                // Handle Keycloak realm_access format: {"realm_access": {"roles": ["admin"]}}
+                Object realmRoles = rolesMap.get("roles");
+                if (realmRoles instanceof java.util.List<?> realmRolesList) {
+                    isAdmin = realmRolesList.stream()
+                            .map(Object::toString)
+                            .anyMatch(role -> role.equalsIgnoreCase("admin"));
+                }
+            }
+            
+            String currentUser = getCurrentUserNameFromJwt();
+            log.debug("Admin check - User: '{}', Has admin role: {}", currentUser, isAdmin);
+            
+            return isAdmin;
+            
+        } catch (Exception e) {
+            log.error("Error checking admin role: ", e);
+            // Return false để an toàn khi có lỗi
+            return false;
+        }
+    }
     public boolean hasPermissionToUpdateVideo(String assignedStaff) {
         try {
             String currentUserName = getCurrentUserNameFromJwt();
