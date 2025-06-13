@@ -2,6 +2,8 @@ package com.ptit.google.veo3.repository;
 
 
 import com.ptit.google.veo3.dto.StaffSalaryDto;
+import com.ptit.google.veo3.dto.SalesSalaryDto;
+import com.ptit.google.veo3.dto.SalesSalaryProjection;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
@@ -141,7 +143,6 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
      * 2. Đang trong trạng thái DANG_LAM hoặc DANG_SUA
      * 3. Thời gian assign đã quá số phút được chỉ định
      * 
-     * @param timeoutMinutes Số phút timeout (thường là 15)
      * @return Danh sách video cần được reset
      */
     @Query("""
@@ -174,5 +175,59 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
             AND v.assignedAt < :expiredTime
             """)
     long countExpiredAssignedVideos(@Param("expiredTime") LocalDateTime expiredTime);
+
+    /**
+     * Tính lương sales theo từng ngày - Sử dụng Interface Projection
+     * 
+     * Business Logic:
+     * - GROUP BY createdBy (sales person)
+     * - WHERE paymentStatus = 'DA_THANH_TOAN' 
+     * - WHERE DATE(paymentDate) = targetDate
+     * - SUM(price) per sales
+     * - Commission = totalPrice * 0.12
+     * 
+     * Sử dụng interface projection thay cho constructor expression
+     * để tránh lỗi "Missing constructor" trong JPQL
+     * 
+     * @param targetDate Ngày cần thống kê lương (yyyy-MM-dd)
+     * @return Danh sách projection chứa thông tin lương sales theo ngày
+     */
+    @Query("""
+            SELECT 
+                COALESCE(v.createdBy, 'Unknown Sales') as salesName,
+                COUNT(v) as totalPaidVideos,
+                COALESCE(SUM(v.price), 0) as totalSalesValue,
+                COALESCE(SUM(v.price) * 0.12, 0) as commissionSalary
+            FROM Video v 
+            WHERE v.isDeleted = false 
+            AND v.paymentStatus = 'DA_THANH_TOAN' 
+            AND DATE(v.paymentDate) = :targetDate 
+            AND v.price IS NOT NULL
+            GROUP BY v.createdBy
+            ORDER BY SUM(v.price) DESC
+            """)
+    List<SalesSalaryProjection> calculateSalesSalariesProjectionByDate(@Param("targetDate") LocalDate targetDate);
+
+    /**
+     * BACKUP: Native query để tính lương sales - sử dụng nếu JPQL projection có vấn đề
+     * 
+     * @param targetDate Ngày cần thống kê lương (yyyy-MM-dd)
+     * @return Danh sách Object[] chứa: salesName, totalVideos, totalSalesValue, commissionSalary
+     */
+    @Query(value = """
+            SELECT 
+                COALESCE(v.created_by, 'Unknown Sales') as sales_name,
+                COUNT(v.id) as total_paid_videos,
+                COALESCE(SUM(v.price), 0) as total_sales_value,
+                COALESCE(SUM(v.price) * 0.12, 0) as commission_salary
+            FROM videos v 
+            WHERE v.is_deleted = false 
+            AND v.payment_status = 'DA_THANH_TOAN' 
+            AND DATE(v.payment_date) = :targetDate 
+            AND v.price IS NOT NULL
+            GROUP BY v.created_by
+            ORDER BY SUM(v.price) DESC
+            """, nativeQuery = true)
+    List<Object[]> calculateSalesSalariesNativeByDate(@Param("targetDate") LocalDate targetDate);
 
 }

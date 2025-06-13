@@ -3,6 +3,7 @@ package com.ptit.google.veo3.controller;
 import com.ptit.google.veo3.dto.StaffSalaryDto;
 import com.ptit.google.veo3.dto.VideoRequestDto;
 import com.ptit.google.veo3.dto.VideoResponseDto;
+import com.ptit.google.veo3.dto.SalesSalaryDto;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
@@ -53,6 +54,7 @@ import java.util.Map;
  * - PUT    /api/v1/videos/{id}/delivery-status - Cập nhật trạng thái giao hàng
  * - PUT    /api/v1/videos/{id}/payment-status  - Cập nhật trạng thái thanh toán
  * - GET    /api/v1/videos/staff-workload     - Lấy thông tin workload của nhân viên
+ * - GET    /api/v1/videos/sales-salaries    - Tính lương sales theo ngày thanh toán (NEW API)
  */
 @RestController
 @RequestMapping("/api/v1/videos")
@@ -806,6 +808,69 @@ public class VideoController {
         } catch (Exception e) {
             log.error("[Tenant: {}] Error getting staff salaries: ", tenantId, e);
             return createErrorResponse("Lỗi khi lấy thông tin lương nhân viên: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/videos/sales-salaries - Tính lương sales theo ngày thanh toán
+     * 
+     * Business Logic:
+     * - Lọc videos có paymentStatus = 'DA_THANH_TOAN'
+     * - Lọc theo paymentDate = currentDate
+     * - Group theo createdBy (sales person)  
+     * - Tính tổng price per sales
+     * - Hoa hồng = tổng price * 12%
+     * 
+     * @param currentDate Ngày hiện tại cần thống kê (format: yyyy-MM-dd, required)
+     * @return ResponseEntity chứa danh sách lương sales theo ngày
+     */
+    @GetMapping("/sales-salaries")
+    public ResponseEntity<Map<String, Object>> getSalesSalariesByDate(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate currentDate) {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to calculate sales salaries for date: {}", tenantId, currentDate);
+
+        try {
+            List<SalesSalaryDto> salesSalaries = videoService.calculateSalesSalariesByDate(currentDate);
+
+            // Tính tổng thống kê cho response
+            BigDecimal totalCommission = salesSalaries.stream()
+                    .map(SalesSalaryDto::getCommissionSalary)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal totalSalesValue = salesSalaries.stream()
+                    .map(SalesSalaryDto::getTotalSalesValue)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            Long totalVideos = salesSalaries.stream()
+                    .mapToLong(SalesSalaryDto::getTotalPaidVideos)
+                    .sum();
+
+            Map<String, Object> response = createSuccessResponse(
+                    String.format("Tính lương sales ngày %s thành công", currentDate),
+                    salesSalaries
+            );
+            
+            // Thêm thông tin thống kê tổng quan
+            response.put("summary", Map.of(
+                    "totalSalesPersons", salesSalaries.size(),
+                    "totalCommission", totalCommission,
+                    "totalSalesValue", totalSalesValue,
+                    "totalPaidVideos", totalVideos,
+                    "commissionRate", "12%",
+                    "calculationDate", currentDate
+            ));
+            response.put("tenantId", tenantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("[Tenant: {}] Invalid parameter for sales salary calculation: {}", tenantId, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error calculating sales salaries for date {}: ", tenantId, currentDate, e);
+            return createErrorResponse("Lỗi khi tính lương sales: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

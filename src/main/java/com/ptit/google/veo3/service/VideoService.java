@@ -3,6 +3,8 @@ package com.ptit.google.veo3.service;
 import com.ptit.google.veo3.dto.StaffSalaryDto;
 import com.ptit.google.veo3.dto.VideoRequestDto;
 import com.ptit.google.veo3.dto.VideoResponseDto;
+import com.ptit.google.veo3.dto.SalesSalaryDto;
+import com.ptit.google.veo3.dto.SalesSalaryProjection;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
@@ -40,7 +42,6 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final JwtTokenService jwtTokenService;
     private final StaffWorkloadService staffWorkloadService;
-
     /**
      * Tạo mới một video record
      * 
@@ -87,7 +88,6 @@ public class VideoService {
                 savedVideo.getId(), savedVideo.getOrderValue(), savedVideo.getPrice());
         return mapToResponseDto(savedVideo);
     }
-
     /**
      * Cập nhật thông tin video
      * 
@@ -129,7 +129,6 @@ public class VideoService {
                 id, updatedVideo.getOrderValue(), updatedVideo.getPrice());
         return mapToResponseDto(updatedVideo);
     }
-
     /**
      * Cập nhật nhân viên được giao cho video
      * 
@@ -200,19 +199,11 @@ public class VideoService {
 
         return mapToResponseDto(updatedVideo);
     }
-
     /**
      * Cập nhật trạng thái video
      * 
      * PERMISSION LOGIC: Chỉ có nhân viên được giao video mới có quyền cập nhật trạng thái
      * Kiểm tra bằng cách so sánh trường "name" từ JWT với assignedStaff của video
-     * 
-     * @param id Video ID cần cập nhật
-     * @param statusString Trạng thái mới 
-     * @return VideoResponseDto sau khi cập nhật
-     * @throws SecurityException nếu người dùng không có quyền
-     * @throws VideoNotFoundException nếu không tìm thấy video
-     * @throws IllegalArgumentException nếu tham số không hợp lệ
      */
     @Transactional
     public VideoResponseDto updateVideoStatus(Long id, String statusString) {
@@ -274,19 +265,10 @@ public class VideoService {
                 id, status, jwtTokenService.getCurrentUserNameFromJwt());
         return mapToResponseDto(updatedVideo);
     }
-
     /**
      * Cập nhật link video
      * 
      * PERMISSION LOGIC: Chỉ có nhân viên được giao video mới có quyền cập nhật video URL
-     * Kiểm tra bằng cách so sánh trường "name" từ JWT với assignedStaff của video
-     * 
-     * @param id Video ID cần cập nhật
-     * @param videoUrl Link video mới
-     * @return VideoResponseDto sau khi cập nhật
-     * @throws SecurityException nếu người dùng không có quyền
-     * @throws VideoNotFoundException nếu không tìm thấy video
-     * @throws IllegalArgumentException nếu tham số không hợp lệ
      */
     @Transactional
     public VideoResponseDto updateVideoUrl(Long id, String videoUrl) {
@@ -318,14 +300,6 @@ public class VideoService {
 
     /**
      * Hủy video - Reset về trạng thái chưa ai nhận (ADMIN ONLY)
-     * 
-     * SECURITY: Chỉ có admin mới có quyền hủy video
-     * BUSINESS LOGIC: Reset assignedStaff = null, assignedAt = null, status = CHUA_AI_NHAN
-     * 
-     * @param id Video ID cần hủy
-     * @return VideoResponseDto sau khi hủy
-     * @throws SecurityException nếu không phải admin
-     * @throws VideoNotFoundException nếu không tìm thấy video
      */
     @Transactional
     public VideoResponseDto cancelVideo(Long id) {
@@ -356,20 +330,18 @@ public class VideoService {
         
         return mapToResponseDto(canceledVideo);
     }
+    /**
+     * Xóa video (soft delete)
+     */
     @Transactional
     public void deleteVideo(Long id) {
         log.info("Deleting video with ID: {}", id);
-
-//        if (!videoRepository.existsById(id)) {
-//            throw new VideoNotFoundException("Không tìm thấy video với ID: " + id);
-//        }
 
         Video video = videoRepository.findById(id).orElseThrow(
                 () -> new VideoNotFoundException("Không tìm thấy video với ID: " + id)
         );
 
         video.setIsDeleted(true);
-
         videoRepository.save(video);
         log.info("Video deleted successfully with ID: {}", id);
     }
@@ -379,7 +351,6 @@ public class VideoService {
      */
     public VideoResponseDto getVideoById(Long id) {
         log.info("Fetching video with ID: {}", id);
-
         Video video = findVideoByIdOrThrow(id);
         return mapToResponseDto(video);
     }
@@ -388,15 +359,14 @@ public class VideoService {
      * Lấy danh sách tất cả video với phân trang
      */
     public Page<VideoResponseDto> getAllVideos(int page, int size, String sortBy, String sortDirection,
-                                               VideoStatus videoStatus, String assignedStaff, DeliveryStatus deliveryStatus, PaymentStatus paymentStatus) {
+                                               VideoStatus videoStatus, String assignedStaff, 
+                                               DeliveryStatus deliveryStatus, PaymentStatus paymentStatus) {
         log.info("Fetching all videos - page: {}, size: {}, sortBy: {}, direction: {}",
                 page, size, sortBy, sortDirection);
 
         Sort.Direction direction = Sort.Direction.fromString(sortDirection);
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-
         Page<Video> videoPage = videoRepository.getAll(pageable, videoStatus, assignedStaff, deliveryStatus, paymentStatus);
-
         return videoPage.map(this::mapToResponseDto);
     }
 
@@ -405,16 +375,12 @@ public class VideoService {
      */
     public List<VideoResponseDto> getAllVideos() {
         log.info("Fetching all videos without pagination");
-
         List<Video> videos = videoRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
-
-        return videos.stream()
-                .map(this::mapToResponseDto)
-                .toList();
+        return videos.stream().map(this::mapToResponseDto).toList();
     }
 
     /**
-     * Tìm kiếm video theo tên khách hàng (không phân biệt hoa thường)
+     * Tìm kiếm video theo tên khách hàng
      */
     public List<VideoResponseDto> searchByCustomerName(String customerName) {
         log.info("Searching videos by customer name: '{}'", customerName);
@@ -431,14 +397,9 @@ public class VideoService {
         }
 
         List<Video> videos = videoRepository.findByCustomerNameContainingIgnoreCase(trimmedName);
-
         log.info("Found {} videos for customer name: '{}'", videos.size(), trimmedName);
-
-        return videos.stream()
-                .map(this::mapToResponseDto)
-                .toList();
+        return videos.stream().map(this::mapToResponseDto).toList();
     }
-
     /**
      * Lấy danh sách video theo trạng thái
      */
@@ -459,12 +420,8 @@ public class VideoService {
         }
 
         List<Video> videos = videoRepository.findByStatus(status);
-
         log.info("Found {} videos with status: '{}'", videos.size(), status);
-
-        return videos.stream()
-                .map(this::mapToResponseDto)
-                .toList();
+        return videos.stream().map(this::mapToResponseDto).toList();
     }
 
     /**
@@ -485,12 +442,8 @@ public class VideoService {
         }
 
         List<Video> videos = videoRepository.findByAssignedStaffContainingIgnoreCase(trimmedStaff);
-
         log.info("Found {} videos assigned to staff: '{}'", videos.size(), trimmedStaff);
-
-        return videos.stream()
-                .map(this::mapToResponseDto)
-                .toList();
+        return videos.stream().map(this::mapToResponseDto).toList();
     }
 
     /**
@@ -498,7 +451,6 @@ public class VideoService {
      */
     public Map<VideoStatus, Long> getVideoStatusStatistics() {
         log.info("Fetching video status statistics");
-
         Map<VideoStatus, Long> statistics = new HashMap<>();
 
         for (VideoStatus status : VideoStatus.values()) {
@@ -510,7 +462,6 @@ public class VideoService {
         log.info("Video status statistics retrieved successfully");
         return statistics;
     }
-
     /**
      * Tìm kiếm video trong khoảng thời gian tạo
      */
@@ -528,9 +479,7 @@ public class VideoService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<Video> videoPage = videoRepository.findByCreatedAtBetween(startDate, endDate, pageable);
-
         log.info("Found {} videos created between {} and {}", videoPage.getTotalElements(), startDate, endDate);
-
         return videoPage.map(this::mapToResponseDto);
     }
 
@@ -574,12 +523,8 @@ public class VideoService {
         }
 
         log.info("Advanced search returned {} videos", videos.size());
-
-        return videos.stream()
-                .map(this::mapToResponseDto)
-                .toList();
+        return videos.stream().map(this::mapToResponseDto).toList();
     }
-
     /**
      * Lọc video theo nhân viên, trạng thái giao hàng và trạng thái thanh toán
      */
@@ -628,10 +573,7 @@ public class VideoService {
         }
 
         log.info("Filter returned {} videos", videos.size());
-
-        return videos.stream()
-                .map(this::mapToResponseDto)
-                .toList();
+        return videos.stream().map(this::mapToResponseDto).toList();
     }
 
     /**
@@ -663,7 +605,6 @@ public class VideoService {
         log.info("Delivery status updated successfully for video ID: {} to status: {}", id, status);
         return mapToResponseDto(updatedVideo);
     }
-
     /**
      * Cập nhật trạng thái thanh toán
      */
@@ -712,17 +653,111 @@ public class VideoService {
 
     /**
      * Tính tổng tiền lương cho các nhân viên
-     * Chỉ tính các video đã thanh toán
-     * Có thể lọc theo ngày thanh toán
-     *
-     * @param date Ngày cần thống kê (có thể null để lấy tất cả)
-     * @return Danh sách thông tin lương của từng nhân viên
      */
     public List<StaffSalaryDto> calculateStaffSalaries(LocalDate date) {
         log.info("Calculating staff salaries for date: {}", date);
         List<StaffSalaryDto> salaries = videoRepository.calculateStaffSalaries(date);
         log.info("Found salary information for {} staff members", salaries.size());
         return salaries;
+    }
+    /**
+     * Tính lương sales theo ngày thanh toán - UPDATED với Interface Projection
+     * 
+     * FIXED: Thay đổi từ constructor expression sang interface projection
+     * để tránh lỗi "Missing constructor" trong JPQL
+     */
+    public List<SalesSalaryDto> calculateSalesSalariesByDate(LocalDate targetDate) {
+        if (targetDate == null) {
+            throw new IllegalArgumentException("Target date không được null");
+        }
+        
+        log.info("Calculating sales salaries for date: {}", targetDate);
+        
+        List<SalesSalaryDto> salesSalaries;
+        
+        try {
+            // Thử sử dụng interface projection trước
+            log.debug("Attempting to use interface projection for sales salary calculation");
+            List<SalesSalaryProjection> projections = videoRepository.calculateSalesSalariesProjectionByDate(targetDate);
+            
+            // Convert projection sang DTO với đầy đủ thông tin
+            salesSalaries = projections.stream()
+                    .map(projection -> convertProjectionToDto(projection, targetDate))
+                    .toList();
+                    
+            log.info("Successfully used interface projection for sales salary calculation");
+            
+        } catch (Exception e) {
+            log.warn("Interface projection failed, falling back to native query: {}", e.getMessage());
+            
+            // Fallback sang native query nếu projection fail
+            salesSalaries = calculateSalesSalariesByDateNative(targetDate);
+        }
+        
+        // Log chi tiết để debugging và monitoring
+        logSalaryCalculationResults(salesSalaries, targetDate);
+        
+        return salesSalaries;
+    }
+    
+    /**
+     * Helper method để log kết quả tính lương sales
+     */
+    private void logSalaryCalculationResults(List<SalesSalaryDto> salesSalaries, LocalDate targetDate) {
+        if (salesSalaries.isEmpty()) {
+            log.warn("No sales salary data found for date: {}", targetDate);
+        } else {
+            BigDecimal totalCommission = salesSalaries.stream()
+                    .map(SalesSalaryDto::getCommissionSalary)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            Long totalVideos = salesSalaries.stream()
+                    .mapToLong(SalesSalaryDto::getTotalPaidVideos)
+                    .sum();
+            
+            log.info("Sales salary calculation completed for date: {} - {} sales, {} videos, total commission: {}", 
+                    targetDate, salesSalaries.size(), totalVideos, totalCommission);
+        }
+    }
+    /**
+     * Helper method để convert SalesSalaryProjection sang SalesSalaryDto
+     */
+    private SalesSalaryDto convertProjectionToDto(SalesSalaryProjection projection, LocalDate targetDate) {
+        return SalesSalaryDto.builder()
+                .salesName(projection.getSalesName())
+                .salaryDate(targetDate.toString()) // Convert LocalDate to String
+                .totalPaidVideos(projection.getTotalPaidVideos())
+                .totalSalesValue(projection.getTotalSalesValue())
+                .commissionSalary(projection.getCommissionSalary())
+                .commissionRate(BigDecimal.valueOf(0.12)) // 12% commission rate
+                .build();
+    }
+
+    /**
+     * BACKUP: Method tính lương sales sử dụng native query
+     */
+    private List<SalesSalaryDto> calculateSalesSalariesByDateNative(LocalDate targetDate) {
+        log.info("Using native query fallback for sales salaries calculation: {}", targetDate);
+        
+        List<Object[]> results = videoRepository.calculateSalesSalariesNativeByDate(targetDate);
+        
+        return results.stream()
+                .map(row -> convertNativeResultToDto(row, targetDate))
+                .toList();
+    }
+
+    /**
+     * Helper method để convert native query result sang DTO
+     */
+    private SalesSalaryDto convertNativeResultToDto(Object[] row, LocalDate targetDate) {
+        return SalesSalaryDto.builder()
+                .salesName((String) row[0])
+                .salaryDate(targetDate.toString())
+                .totalPaidVideos(((Number) row[1]).longValue())
+                .totalSalesValue((BigDecimal) row[2])
+                .commissionSalary((BigDecimal) row[3])
+                .commissionRate(BigDecimal.valueOf(0.12))
+                .build();
     }
 
     /**
@@ -732,7 +767,6 @@ public class VideoService {
         return videoRepository.findById(id)
                 .orElseThrow(() -> new VideoNotFoundException("Không tìm thấy video với ID: " + id));
     }
-
     /**
      * Helper method để update các field của video entity
      */
@@ -775,7 +809,6 @@ public class VideoService {
         Optional.ofNullable(requestDto.getPrice())
                 .ifPresent(existingVideo::setPrice);
     }
-
     /**
      * Map từ DTO request sang Entity
      */
@@ -797,7 +830,7 @@ public class VideoService {
                 .paymentStatus(dto.getPaymentStatus())
                 .paymentDate(dto.getPaymentDate())
                 .orderValue(dto.getOrderValue())
-                .price(dto.getPrice()) // Thêm mapping cho price
+                .price(dto.getPrice())
                 .build();
     }
 
@@ -814,7 +847,7 @@ public class VideoService {
                 .videoDuration(video.getVideoDuration())
                 .deliveryTime(video.getDeliveryTime())
                 .assignedStaff(video.getAssignedStaff())
-                .assignedAt(video.getAssignedAt()) // Thêm field assignedAt
+                .assignedAt(video.getAssignedAt())
                 .status(video.getStatus())
                 .videoUrl(video.getVideoUrl())
                 .completedTime(video.getCompletedTime())
@@ -827,7 +860,7 @@ public class VideoService {
                 .paymentStatus(video.getPaymentStatus())
                 .paymentDate(video.getPaymentDate())
                 .orderValue(video.getOrderValue())
-                .price(video.getPrice()) // Thêm mapping cho price
+                .price(video.getPrice())
                 .build();
     }
 
