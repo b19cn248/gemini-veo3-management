@@ -361,13 +361,13 @@ public class VideoService {
     public Page<VideoResponseDto> getAllVideos(int page, int size, String sortBy, String sortDirection,
                                                VideoStatus videoStatus, String assignedStaff, 
                                                DeliveryStatus deliveryStatus, PaymentStatus paymentStatus,
-                                               LocalDate paymentDate) {
+                                               LocalDate paymentDate, String createdBy) {
         log.info("Fetching all videos - page: {}, size: {}, sortBy: {}, direction: {}",
                 page, size, sortBy, sortDirection);
 
         Sort.Direction direction = Sort.Direction.fromString(sortDirection);
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<Video> videoPage = videoRepository.getAll(pageable, videoStatus, assignedStaff, deliveryStatus, paymentStatus, paymentDate);
+        Page<Video> videoPage = videoRepository.getAll(pageable, videoStatus, assignedStaff, deliveryStatus, paymentStatus, paymentDate, createdBy);
         return videoPage.map(this::mapToResponseDto);
     }
 
@@ -650,6 +650,16 @@ public class VideoService {
         List<String> staffList = videoRepository.findDistinctAssignedStaff();
         log.info("Found {} distinct staff members", staffList.size());
         return staffList;
+    }
+
+    /**
+     * Lấy danh sách các người tạo video khác nhau
+     */
+    public List<String> getDistinctCreatedBy() {
+        log.info("Fetching distinct video creators");
+        List<String> creatorList = videoRepository.findDistinctCreatedBy();
+        log.info("Found {} distinct video creators", creatorList.size());
+        return creatorList;
     }
 
     /**

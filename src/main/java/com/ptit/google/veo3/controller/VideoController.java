@@ -471,6 +471,7 @@ public class VideoController {
             @RequestParam(required = false) DeliveryStatus deliveryStatus,
             @RequestParam(required = false) PaymentStatus paymentStatus,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate paymentDate,
+            @RequestParam(required = false) String createdBy,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDirection,
             @RequestHeader(value = "db", required = false) String dbHeader) {
@@ -485,7 +486,7 @@ public class VideoController {
 
         try {
             Page<VideoResponseDto> videoPage = videoService.getAllVideos(page, size, sortBy, sortDirection,
-                    status, assignedStaff, deliveryStatus, paymentStatus, paymentDate);
+                    status, assignedStaff, deliveryStatus, paymentStatus, paymentDate, createdBy);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -769,6 +770,35 @@ public class VideoController {
         } catch (Exception e) {
             log.error("[Tenant: {}] Error getting distinct assigned staff: ", tenantId, e);
             return createErrorResponse("Lỗi khi lấy danh sách nhân viên: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/videos/creators - Lấy danh sách các người tạo video khác nhau
+     * Trả về danh sách distinct createdBy từ bảng Video
+     *
+     * @return ResponseEntity chứa danh sách tên người tạo video
+     */
+    @GetMapping("/creators")
+    public ResponseEntity<Map<String, Object>> getDistinctCreatedBy() {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get distinct video creators", tenantId);
+
+        try {
+            List<String> creatorList = videoService.getDistinctCreatedBy();
+
+            Map<String, Object> response = createSuccessResponse(
+                    "Lấy danh sách người tạo video thành công",
+                    creatorList
+            );
+            response.put("total", creatorList.size());
+            response.put("tenantId", tenantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error getting distinct video creators: ", tenantId, e);
+            return createErrorResponse("Lỗi khi lấy danh sách người tạo video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(mvn:*)",
-      "Bash(./mvnw:*)"
+      "Bash(./mvnw:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }
