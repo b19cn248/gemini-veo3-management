@@ -59,13 +59,15 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
             "AND (:videoStatus IS NULL OR v.status = :videoStatus) " +
             "AND (:assignedStaff IS NULL OR v.assignedStaff LIKE %:assignedStaff%) " +
             "AND (:deliveryStatus IS NULL OR v.deliveryStatus = :deliveryStatus) " +
-            "AND (:paymentStatus IS NULL OR v.paymentStatus = :paymentStatus)")
+            "AND (:paymentStatus IS NULL OR v.paymentStatus = :paymentStatus) " +
+            "AND (:paymentDate IS NULL OR DATE(v.paymentDate) = :paymentDate)")
     Page<Video> getAll(
             Pageable pageable,
             VideoStatus videoStatus,
             @Param("assignedStaff") String assignedStaff,
             @Param("deliveryStatus") DeliveryStatus deliveryStatus,
-            @Param("paymentStatus") PaymentStatus paymentStatus
+            @Param("paymentStatus") PaymentStatus paymentStatus,
+            @Param("paymentDate") LocalDate paymentDate
     );
 
     @Query("SELECT DISTINCT v.assignedStaff FROM Video v WHERE v.assignedStaff IS NOT NULL AND v.isDeleted = false")

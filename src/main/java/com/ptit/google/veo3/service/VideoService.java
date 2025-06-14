@@ -360,13 +360,14 @@ public class VideoService {
      */
     public Page<VideoResponseDto> getAllVideos(int page, int size, String sortBy, String sortDirection,
                                                VideoStatus videoStatus, String assignedStaff, 
-                                               DeliveryStatus deliveryStatus, PaymentStatus paymentStatus) {
+                                               DeliveryStatus deliveryStatus, PaymentStatus paymentStatus,
+                                               LocalDate paymentDate) {
         log.info("Fetching all videos - page: {}, size: {}, sortBy: {}, direction: {}",
                 page, size, sortBy, sortDirection);
 
         Sort.Direction direction = Sort.Direction.fromString(sortDirection);
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<Video> videoPage = videoRepository.getAll(pageable, videoStatus, assignedStaff, deliveryStatus, paymentStatus);
+        Page<Video> videoPage = videoRepository.getAll(pageable, videoStatus, assignedStaff, deliveryStatus, paymentStatus, paymentDate);
         return videoPage.map(this::mapToResponseDto);
     }
 

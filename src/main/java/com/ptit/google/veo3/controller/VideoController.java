@@ -470,6 +470,7 @@ public class VideoController {
             @RequestParam(required = false) String assignedStaff,
             @RequestParam(required = false) DeliveryStatus deliveryStatus,
             @RequestParam(required = false) PaymentStatus paymentStatus,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate paymentDate,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDirection,
             @RequestHeader(value = "db", required = false) String dbHeader) {
@@ -484,7 +485,7 @@ public class VideoController {
 
         try {
             Page<VideoResponseDto> videoPage = videoService.getAllVideos(page, size, sortBy, sortDirection,
-                    status, assignedStaff, deliveryStatus, paymentStatus);
+                    status, assignedStaff, deliveryStatus, paymentStatus, paymentDate);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);

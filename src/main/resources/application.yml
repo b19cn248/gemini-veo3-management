@@ -14,7 +14,7 @@ spring:
 
   # DataSource configuration - sẽ được override bởi TenantAwareDataSource
   datasource:
-    url: jdbc:mysql://10.8.0.1:33068/video_management?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/video_management?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -81,7 +81,7 @@ multitenant:
   datasource:
     # URL pattern - %s sẽ được thay thế bằng tenant ID (database name)
     # FIXED: Remove createDatabaseIfNotExist to avoid auto-commit issues
-    url-pattern: "jdbc:mysql://10.8.0.1:33068/%s?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
+    url-pattern: "jdbc:mysql://localhost:3306/%s?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8"
 
     # HikariCP Connection Pool Settings
     maximum-pool-size: 10        # Tối đa 10 connections per tenant
