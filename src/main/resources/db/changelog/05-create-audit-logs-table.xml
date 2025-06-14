@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+    Version 1.6: Audit Logs Feature
+    
+    Mục đích: Tạo hệ thống audit log để tracking toàn bộ lịch sử thay đổi video
+    
+    Chức năng:
+    - Track mọi CRUD operations (CREATE, UPDATE, DELETE)
+    - Track business operations (ASSIGN_STAFF, UPDATE_STATUS, etc.)
+    - Store field-level changes với old/new values
+    - Support multi-tenant architecture
+    - Performance optimized với proper indexing
+    
+    Business Rules:
+    - Mọi thay đổi trên Video entity đều được audit
+    - Audit logs không bao giờ bị xóa (immutable)
+    - Chỉ ADMIN role mới có thể query audit logs
+    - Auto-capture user info từ JWT token
+    -->
+
+    <changeSet id="05-create-audit-logs-table-001" author="system">
+        <comment>Tạo bảng audit_logs để tracking lịch sử thay đổi video</comment>
+        
+        <createTable tableName="audit_logs">
+            <!-- Primary Key -->
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            
+            <!-- Entity Information - Xác định entity nào bị thay đổi -->
+            <column name="entity_name" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="entity_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            
+            <!-- Action Information - Loại thao tác được thực hiện -->
+            <column name="action" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="action_description" type="VARCHAR(500)">
+                <constraints nullable="true"/>
+            </column>
+            
+            <!-- Field-level Change Tracking -->
+            <column name="field_name" type="VARCHAR(100)">
+                <constraints nullable="true"/>
+            </column>
+            
+            <column name="old_value" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+            
+            <column name="new_value" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+            
+            <!-- User & Session Information -->
+            <column name="performed_by" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="performed_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            
+            <!-- Security & Tracking Information -->
+            <column name="ip_address" type="VARCHAR(45)">
+                <constraints nullable="true"/>
+            </column>
+            
+            <column name="user_agent" type="VARCHAR(500)">
+                <constraints nullable="true"/>
+            </column>
+            
+            <!-- Multi-tenant Support -->
+            <column name="tenant_id" type="VARCHAR(100)">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        
+        <rollback>
+            <dropTable tableName="audit_logs"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="05-create-audit-logs-table-002" author="system">
+        <comment>Tạo indexes cho audit_logs table để optimize performance</comment>
+        
+        <!-- Index chính cho query lịch sử của một entity cụ thể -->
+        <createIndex tableName="audit_logs" indexName="idx_audit_entity_time">
+            <column name="entity_name"/>
+            <column name="entity_id"/>
+            <column name="performed_at" descending="true"/>
+        </createIndex>
+        
+        <!-- Index cho query theo action type -->
+        <createIndex tableName="audit_logs" indexName="idx_audit_action">
+            <column name="action"/>
+            <column name="performed_at" descending="true"/>
+        </createIndex>
+        
+        <!-- Index cho query theo user -->
+        <createIndex tableName="audit_logs" indexName="idx_audit_user">
+            <column name="performed_by"/>
+            <column name="performed_at" descending="true"/>
+        </createIndex>
+        
+        <!-- Index cho multi-tenant queries -->
+        <createIndex tableName="audit_logs" indexName="idx_audit_tenant">
+            <column name="tenant_id"/>
+            <column name="performed_at" descending="true"/>
+        </createIndex>
+        
+        <!-- Composite index cho complex queries -->
+        <createIndex tableName="audit_logs" indexName="idx_audit_entity_action_time">
+            <column name="entity_name"/>
+            <column name="action"/>
+            <column name="performed_at" descending="true"/>
+        </createIndex>
+        
+        <rollback>
+            <dropIndex tableName="audit_logs" indexName="idx_audit_entity_time"/>
+            <dropIndex tableName="audit_logs" indexName="idx_audit_action"/>
+            <dropIndex tableName="audit_logs" indexName="idx_audit_user"/>
+            <dropIndex tableName="audit_logs" indexName="idx_audit_tenant"/>
+            <dropIndex tableName="audit_logs" indexName="idx_audit_entity_action_time"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="05-create-audit-logs-table-003" author="system">
+        <comment>Thêm data integrity rules cho audit_logs table</comment>
+        
+        <!-- Data validation constraints sử dụng SQL cho MySQL compatibility -->
+        <sql>
+            ALTER TABLE audit_logs 
+            ADD CONSTRAINT chk_entity_name_valid 
+            CHECK (entity_name IN ('VIDEO', 'USER', 'STAFF', 'CUSTOMER', 'PROJECT', 'SETTING'));
+        </sql>
+        
+        <sql>
+            ALTER TABLE audit_logs 
+            ADD CONSTRAINT chk_action_not_empty 
+            CHECK (LENGTH(TRIM(action)) > 0);
+        </sql>
+        
+        <sql>
+            ALTER TABLE audit_logs 
+            ADD CONSTRAINT chk_performed_by_not_empty 
+            CHECK (LENGTH(TRIM(performed_by)) > 0);
+        </sql>
+        
+        <rollback>
+            <sql>ALTER TABLE audit_logs DROP CONSTRAINT chk_entity_name_valid;</sql>
+            <sql>ALTER TABLE audit_logs DROP CONSTRAINT chk_action_not_empty;</sql>
+            <sql>ALTER TABLE audit_logs DROP CONSTRAINT chk_performed_by_not_empty;</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
