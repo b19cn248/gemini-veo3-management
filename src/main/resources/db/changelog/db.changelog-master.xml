@@ -32,4 +32,7 @@
     <!-- Version 1.5: Price feature - Thêm field price cho pricing logic -->
     <include file="db/changelog/04-add-price-field.xml" relativeToChangelogFile="false"/>
 
+    <!-- Version 1.6: Audit Logs feature - Tạo hệ thống tracking lịch sử video -->
+    <include file="db/changelog/05-create-audit-logs-table.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>
