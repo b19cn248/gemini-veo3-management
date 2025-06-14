@@ -90,7 +90,7 @@ public class VideoController {
             Integer orderValueInt = 0;
 
             if (time == 8) {
-                orderValueInt = 15000;
+                orderValueInt = 20000;
             }
             if (time == 16) {
                 orderValueInt = 45000;
@@ -99,7 +99,10 @@ public class VideoController {
                 orderValueInt = 65000;
             }
             if (time == 32) {
-                orderValueInt = 100000;
+                orderValueInt = 90000;
+            }
+            if (time == 40) {
+                orderValueInt = 110000;
             }
 
             BigDecimal orderValue = BigDecimal.valueOf(orderValueInt);
@@ -153,7 +156,7 @@ public class VideoController {
         Integer orderValueInt = 0;
 
         if (time == 8) {
-            orderValueInt = 15000;
+            orderValueInt = 20000;
         }
         if (time == 16) {
             orderValueInt = 45000;
@@ -162,7 +165,10 @@ public class VideoController {
             orderValueInt = 65000;
         }
         if (time == 32) {
-            orderValueInt = 100000;
+            orderValueInt = 90000;
+        }
+        if (time == 40) {
+            orderValueInt = 110000;
         }
 
         BigDecimal orderValue = BigDecimal.valueOf(orderValueInt);
