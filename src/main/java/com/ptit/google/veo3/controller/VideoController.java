@@ -11,6 +11,7 @@ import com.ptit.google.veo3.service.VideoService;
 import com.ptit.google.veo3.service.interfaces.IJwtTokenService;
 import com.ptit.google.veo3.service.interfaces.IStaffWorkloadService;
 import com.ptit.google.veo3.service.interfaces.IVideoService;
+import com.ptit.google.veo3.service.interfaces.IVideoPricingService;
 import com.ptit.google.veo3.util.VideoPricingUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +67,7 @@ public class VideoController {
     private final IJwtTokenService jwtTokenService;
     private final IStaffWorkloadService staffWorkloadService;
     private final VideoAutoResetService videoAutoResetService;
+    private final IVideoPricingService videoPricingService;
 
     /**
      * POST /api/v1/videos - Tạo mới video
@@ -81,32 +83,15 @@ public class VideoController {
         log.info("[Tenant: {}] Received request to create video for customer: {}", tenantId, requestDto.getCustomerName());
 
         try {
+            Integer videoDuration = requestDto.getVideoDuration();
 
-            Integer time = requestDto.getVideoDuration();
-
-            Integer orderValueInt = 0;
-
-            if (time == 8) {
-                orderValueInt = 20000;
-            }
-            if (time == 16) {
-                orderValueInt = 45000;
-            }
-            if (time == 24) {
-                orderValueInt = 65000;
-            }
-            if (time == 32) {
-                orderValueInt = 90000;
-            }
-            if (time == 40) {
-                orderValueInt = 110000;
-            }
-
-            BigDecimal orderValue = BigDecimal.valueOf(orderValueInt);
+            // AUTO-CALCULATE ORDER VALUE AND PRICE: Using VideoPricingService
+            BigDecimal[] orderValueAndPrice = videoPricingService.calculateOrderValueAndPrice(videoDuration);
+            BigDecimal orderValue = orderValueAndPrice[0];
+            BigDecimal calculatedPrice = orderValueAndPrice[1];
+            
             requestDto.setOrderValue(orderValue);
-
-            // AUTO-CALCULATE PRICE: Sử dụng VideoPricingUtil để tính price
-            BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(orderValue);
+            
             if (calculatedPrice != null) {
                 requestDto.setPrice(calculatedPrice);
                 log.info("[Tenant: {}] Auto-calculated price {} for order value {} (customer: {})",
@@ -147,31 +132,15 @@ public class VideoController {
         String tenantId = TenantContext.getTenantId();
         log.info("[Tenant: {}] Received request to update video with ID: {}", tenantId, id);
 
-        Integer time = requestDto.getVideoDuration();
+        Integer videoDuration = requestDto.getVideoDuration();
 
-        Integer orderValueInt = 0;
-
-        if (time == 8) {
-            orderValueInt = 20000;
-        }
-        if (time == 16) {
-            orderValueInt = 45000;
-        }
-        if (time == 24) {
-            orderValueInt = 65000;
-        }
-        if (time == 32) {
-            orderValueInt = 90000;
-        }
-        if (time == 40) {
-            orderValueInt = 110000;
-        }
-
-        BigDecimal orderValue = BigDecimal.valueOf(orderValueInt);
+        // AUTO-CALCULATE ORDER VALUE AND PRICE: Using VideoPricingService
+        BigDecimal[] orderValueAndPrice = videoPricingService.calculateOrderValueAndPrice(videoDuration);
+        BigDecimal orderValue = orderValueAndPrice[0];
+        BigDecimal calculatedPrice = orderValueAndPrice[1];
+        
         requestDto.setOrderValue(orderValue);
-
-        // AUTO-CALCULATE PRICE: Sử dụng VideoPricingUtil để tính price
-        BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(orderValue);
+        
         if (calculatedPrice != null) {
             requestDto.setPrice(calculatedPrice);
             log.info("[Tenant: {}] Auto-calculated price {} for order value {} during update (video ID: {})",

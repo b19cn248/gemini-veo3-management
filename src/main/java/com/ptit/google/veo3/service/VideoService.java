@@ -15,8 +15,8 @@ import com.ptit.google.veo3.service.interfaces.IVideoService;
 import com.ptit.google.veo3.service.interfaces.IJwtTokenService;
 import com.ptit.google.veo3.service.interfaces.IStaffWorkloadService;
 import com.ptit.google.veo3.service.interfaces.IAuditService;
+import com.ptit.google.veo3.service.interfaces.IVideoPricingService;
 import com.ptit.google.veo3.dto.WorkloadInfo;
-import com.ptit.google.veo3.util.VideoPricingUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -49,6 +49,7 @@ public class VideoService implements IVideoService {
     private final IJwtTokenService jwtTokenService;
     private final IStaffWorkloadService staffWorkloadService;
     private final IAuditService auditService;
+    private final IVideoPricingService videoPricingService;
     /**
      * Tạo mới một video record
      * 
@@ -65,7 +66,7 @@ public class VideoService implements IVideoService {
         
         // PRICING LOGIC: Tự động tính price dựa trên orderValue
         if (video.getOrderValue() != null) {
-            BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(video.getOrderValue());
+            BigDecimal calculatedPrice = videoPricingService.calculatePrice(video.getOrderValue());
             
             if (calculatedPrice != null) {
                 video.setPrice(calculatedPrice);
@@ -118,7 +119,7 @@ public class VideoService implements IVideoService {
         // PRICING LOGIC: Recalculate price nếu orderValue thay đổi
         BigDecimal newOrderValue = existingVideo.getOrderValue();
         if (newOrderValue != null && !newOrderValue.equals(oldOrderValue)) {
-            BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(newOrderValue);
+            BigDecimal calculatedPrice = videoPricingService.calculatePrice(newOrderValue);
             
             if (calculatedPrice != null) {
                 existingVideo.setPrice(calculatedPrice);
