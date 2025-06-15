@@ -32,10 +32,11 @@ public class VideoPricingUtil {
      * Sử dụng BigDecimal để đảm bảo precision cho financial calculations
      */
     private static final Map<BigDecimal, BigDecimal> PRICING_MAP = Map.of(
-            new BigDecimal("15000.00"), new BigDecimal("30000.00"),
-            new BigDecimal("45000.00"), new BigDecimal("150000.00"),
-            new BigDecimal("65000.00"), new BigDecimal("200000.00"),
-            new BigDecimal("100000.00"), new BigDecimal("250000.00")
+            new BigDecimal("20000.00"), new BigDecimal("30000.00"),
+            new BigDecimal("45000.00"), new BigDecimal("170000.00"),
+            new BigDecimal("65000.00"), new BigDecimal("230000.00"),
+            new BigDecimal("900000.00"), new BigDecimal("290000.00"),
+            new BigDecimal("110000.00"), new BigDecimal("350000.00")
     );
 
     /**

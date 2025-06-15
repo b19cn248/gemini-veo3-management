@@ -5,6 +5,7 @@ import com.ptit.google.veo3.dto.VideoRequestDto;
 import com.ptit.google.veo3.dto.VideoResponseDto;
 import com.ptit.google.veo3.dto.SalesSalaryDto;
 import com.ptit.google.veo3.dto.SalesSalaryProjection;
+import com.ptit.google.veo3.entity.AuditAction;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
@@ -42,6 +43,7 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final JwtTokenService jwtTokenService;
     private final StaffWorkloadService staffWorkloadService;
+    private final AuditService auditService;
     /**
      * Tạo mới một video record
      * 
@@ -174,6 +176,10 @@ public class VideoService {
             }
         }
 
+        // Lưu giá trị cũ để audit logging
+        String oldAssignedStaff = existingVideo.getAssignedStaff();
+        VideoStatus oldStatus = existingVideo.getStatus();
+        
         existingVideo.setAssignedStaff(assignedStaff != null ? assignedStaff.trim() : null);
         
         // Tự động chuyển trạng thái sang DANG_LAM khi gán nhân viên và set thời gian assign
@@ -193,8 +199,52 @@ public class VideoService {
             long newWorkload = staffWorkloadService.getCurrentWorkload(assignedStaff.trim());
             log.info("Video ID {} successfully assigned to staff '{}'. New workload: {} videos", 
                     id, assignedStaff.trim(), newWorkload);
+            
+            // Audit log cho việc gán nhân viên
+            auditService.logVideoBusinessAction(
+                updatedVideo.getId(),
+                AuditAction.ASSIGN_STAFF,
+                String.format("Gán video cho nhân viên: %s", assignedStaff.trim()),
+                "assignedStaff",
+                oldAssignedStaff,
+                assignedStaff.trim()
+            );
+            
+            // Audit log cho việc thay đổi trạng thái
+            if (oldStatus != updatedVideo.getStatus()) {
+                auditService.logVideoBusinessAction(
+                    updatedVideo.getId(),
+                    AuditAction.UPDATE_STATUS,
+                    String.format("Tự động chuyển trạng thái từ '%s' sang '%s' khi gán nhân viên", oldStatus, updatedVideo.getStatus()),
+                    "status",
+                    oldStatus.name(),
+                    updatedVideo.getStatus().name()
+                );
+            }
         } else {
             log.info("Video ID {} unassigned from staff", id);
+            
+            // Audit log cho việc hủy gán nhân viên
+            auditService.logVideoBusinessAction(
+                updatedVideo.getId(),
+                AuditAction.UNASSIGN_STAFF,
+                "Hủy gán nhân viên khỏi video",
+                "assignedStaff",
+                oldAssignedStaff,
+                null
+            );
+            
+            // Audit log cho việc thay đổi trạng thái
+            if (oldStatus != updatedVideo.getStatus()) {
+                auditService.logVideoBusinessAction(
+                    updatedVideo.getId(),
+                    AuditAction.UPDATE_STATUS,
+                    String.format("Tự động chuyển trạng thái từ '%s' sang '%s' khi hủy gán nhân viên", oldStatus, updatedVideo.getStatus()),
+                    "status",
+                    oldStatus.name(),
+                    updatedVideo.getStatus().name()
+                );
+            }
         }
 
         return mapToResponseDto(updatedVideo);
@@ -251,6 +301,9 @@ public class VideoService {
             throw new IllegalArgumentException("Phải có link video trước khi chuyển sang xong hoặc đã xong");
         }
 
+        // Lưu trạng thái cũ để audit logging
+        VideoStatus oldStatus = existingVideo.getStatus();
+        
         existingVideo.setStatus(status);
 
         // Tự động set completedTime khi status = DA_XONG hoặc DA_SUA_XONG
@@ -260,6 +313,18 @@ public class VideoService {
         }
 
         Video updatedVideo = videoRepository.save(existingVideo);
+
+        // Audit log cho việc thay đổi trạng thái
+        if (oldStatus != status) {
+            auditService.logVideoBusinessAction(
+                updatedVideo.getId(),
+                AuditAction.UPDATE_STATUS,
+                String.format("Thay đổi trạng thái video từ '%s' sang '%s'", oldStatus, status),
+                "status",
+                oldStatus.name(),
+                status.name()
+            );
+        }
 
         log.info("Video status updated successfully for video ID: {} to status: {} by user: {}", 
                 id, status, jwtTokenService.getCurrentUserNameFromJwt());
@@ -290,8 +355,21 @@ public class VideoService {
             throw new IllegalArgumentException("URL video không được vượt quá 500 ký tự");
         }
 
+        // Lưu giá trị cũ để audit logging
+        String oldVideoUrl = existingVideo.getVideoUrl();
+        
         existingVideo.setVideoUrl(videoUrl != null ? videoUrl.trim() : null);
         Video updatedVideo = videoRepository.save(existingVideo);
+        
+        // Audit log cho việc cập nhật link video
+        auditService.logVideoBusinessAction(
+            updatedVideo.getId(),
+            AuditAction.UPDATE_VIDEO_URL,
+            "Cập nhật link video",
+            "videoUrl",
+            oldVideoUrl,
+            videoUrl != null ? videoUrl.trim() : null
+        );
 
         log.info("Video URL updated successfully for video ID: {} by user: {}", 
                 id, jwtTokenService.getCurrentUserNameFromJwt());
@@ -318,12 +396,26 @@ public class VideoService {
         log.info("Canceling video ID: {}, current assigned staff: '{}', status: {}", 
                 id, existingVideo.getAssignedStaff(), existingVideo.getStatus());
 
+        // Lưu giá trị cũ để audit logging
+        String oldAssignedStaff = existingVideo.getAssignedStaff();
+        VideoStatus oldStatus = existingVideo.getStatus();
+        
         // Reset video về trạng thái ban đầu
         existingVideo.setAssignedStaff(null);
         existingVideo.setAssignedAt(null);
         existingVideo.setStatus(VideoStatus.CHUA_AI_NHAN);
 
         Video canceledVideo = videoRepository.save(existingVideo);
+        
+        // Audit log cho việc hủy video
+        auditService.logVideoBusinessAction(
+            canceledVideo.getId(),
+            AuditAction.CANCEL,
+            String.format("Admin hủy video - Reset từ nhân viên '%s' và trạng thái '%s'", oldAssignedStaff, oldStatus),
+            null,
+            null,
+            null
+        );
 
         String adminUser = jwtTokenService.getCurrentUserNameFromJwt();
         log.info("Video ID: {} successfully canceled by admin: '{}'", id, adminUser);
@@ -343,6 +435,17 @@ public class VideoService {
 
         video.setIsDeleted(true);
         videoRepository.save(video);
+        
+        // Audit log cho việc xóa video
+        auditService.logVideoBusinessAction(
+            video.getId(),
+            AuditAction.DELETE,
+            String.format("Xóa video của khách hàng: %s", video.getCustomerName()),
+            null,
+            null,
+            null
+        );
+        
         log.info("Video deleted successfully with ID: {}", id);
     }
 
@@ -360,13 +463,14 @@ public class VideoService {
      */
     public Page<VideoResponseDto> getAllVideos(int page, int size, String sortBy, String sortDirection,
                                                VideoStatus videoStatus, String assignedStaff, 
-                                               DeliveryStatus deliveryStatus, PaymentStatus paymentStatus) {
+                                               DeliveryStatus deliveryStatus, PaymentStatus paymentStatus,
+                                               LocalDate paymentDate, String createdBy) {
         log.info("Fetching all videos - page: {}, size: {}, sortBy: {}, direction: {}",
                 page, size, sortBy, sortDirection);
 
         Sort.Direction direction = Sort.Direction.fromString(sortDirection);
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-        Page<Video> videoPage = videoRepository.getAll(pageable, videoStatus, assignedStaff, deliveryStatus, paymentStatus);
+        Page<Video> videoPage = videoRepository.getAll(pageable, videoStatus, assignedStaff, deliveryStatus, paymentStatus, paymentDate, createdBy);
         return videoPage.map(this::mapToResponseDto);
     }
 
@@ -599,8 +703,24 @@ public class VideoService {
                     ".Các trạng thái hợp lệ: CHUA_GUI, DANG_GUI, DA_GUI");
         }
 
+        // Lưu giá trị cũ để audit logging
+        DeliveryStatus oldDeliveryStatus = existingVideo.getDeliveryStatus();
+        
         existingVideo.setDeliveryStatus(status);
         Video updatedVideo = videoRepository.save(existingVideo);
+        
+        // Audit log cho việc thay đổi trạng thái giao hàng
+        if (oldDeliveryStatus != status) {
+            auditService.logVideoBusinessAction(
+                updatedVideo.getId(),
+                AuditAction.UPDATE_DELIVERY_STATUS,
+                String.format("Thay đổi trạng thái giao hàng từ '%s' sang '%s'", 
+                    oldDeliveryStatus != null ? oldDeliveryStatus : "CHUA_GUI", status),
+                "deliveryStatus",
+                oldDeliveryStatus != null ? oldDeliveryStatus.name() : null,
+                status.name()
+            );
+        }
 
         log.info("Delivery status updated successfully for video ID: {} to status: {}", id, status);
         return mapToResponseDto(updatedVideo);
@@ -628,6 +748,9 @@ public class VideoService {
                     ". Các trạng thái hợp lệ: CHUA_THANH_TOAN, DA_THANH_TOAN");
         }
 
+        // Lưu giá trị cũ để audit logging
+        PaymentStatus oldPaymentStatus = existingVideo.getPaymentStatus();
+        
         existingVideo.setPaymentStatus(status);
 
         // Tự động set paymentDate khi status = DA_THANH_TOAN
@@ -636,6 +759,19 @@ public class VideoService {
         }
 
         Video updatedVideo = videoRepository.save(existingVideo);
+        
+        // Audit log cho việc thay đổi trạng thái thanh toán
+        if (oldPaymentStatus != status) {
+            auditService.logVideoBusinessAction(
+                updatedVideo.getId(),
+                AuditAction.UPDATE_PAYMENT_STATUS,
+                String.format("Thay đổi trạng thái thanh toán từ '%s' sang '%s'", 
+                    oldPaymentStatus != null ? oldPaymentStatus : "CHUA_THANH_TOAN", status),
+                "paymentStatus",
+                oldPaymentStatus != null ? oldPaymentStatus.name() : null,
+                status.name()
+            );
+        }
 
         log.info("Payment status updated successfully for video ID: {} to status: {}", id, status);
         return mapToResponseDto(updatedVideo);
@@ -649,6 +785,16 @@ public class VideoService {
         List<String> staffList = videoRepository.findDistinctAssignedStaff();
         log.info("Found {} distinct staff members", staffList.size());
         return staffList;
+    }
+
+    /**
+     * Lấy danh sách các người tạo video khác nhau
+     */
+    public List<String> getDistinctCreatedBy() {
+        log.info("Fetching distinct video creators");
+        List<String> creatorList = videoRepository.findDistinctCreatedBy();
+        log.info("Found {} distinct video creators", creatorList.size());
+        return creatorList;
     }
 
     /**

@@ -66,18 +66,28 @@ public class AuditService {
     
     /**
      * Log entity creation
-     * Async operation để không ảnh hưởng performance
+     * Async operation với username capture để không ảnh hưởng performance
      * 
      * @param entity Entity vừa được tạo
      * @param <T> Entity type
      * @return CompletableFuture for async processing
      */
+    public <T extends BaseEntity> CompletableFuture<AuditLog> logEntityCreation(T entity) {
+        // Capture context trong main thread trước khi chuyển async
+        String username = captureCurrentUsername();
+        String ipAddress = getCurrentIpAddress();
+        String userAgent = getCurrentUserAgent();
+        String tenantId = getCurrentTenantId();
+        
+        return logEntityCreationAsync(entity, username, ipAddress, userAgent, tenantId);
+    }
+    
     @Async
     @Transactional
-    public <T extends BaseEntity> CompletableFuture<AuditLog> logEntityCreation(T entity) {
+    private <T extends BaseEntity> CompletableFuture<AuditLog> logEntityCreationAsync(
+            T entity, String username, String ipAddress, String userAgent, String tenantId) {
         try {
             EntityType entityType = determineEntityType(entity);
-            String username = getCurrentUsername();
             
             AuditLog auditLog = AuditLog.builder()
                 .entityType(entityType)
@@ -86,9 +96,9 @@ public class AuditService {
                 .actionDescription(buildCreateDescription(entityType, entity))
                 .newValue(serializeEntityToJson(entity))
                 .performedBy(username)
-                .ipAddress(getCurrentIpAddress())
-                .userAgent(getCurrentUserAgent())
-                .tenantId(getCurrentTenantId())
+                .ipAddress(ipAddress)
+                .userAgent(userAgent)
+                .tenantId(tenantId)
                 .build();
             
             AuditLog savedAudit = auditLogRepository.save(auditLog);
@@ -105,6 +115,7 @@ public class AuditService {
         }
     }
     
+    
     /**
      * Log entity update với field-level change detection
      * 
@@ -113,12 +124,22 @@ public class AuditService {
      * @param <T> Entity type
      * @return CompletableFuture for async processing
      */
+    public <T extends BaseEntity> CompletableFuture<List<AuditLog>> logEntityUpdate(T oldEntity, T newEntity) {
+        // Capture context trong main thread trước khi chuyển async
+        String username = captureCurrentUsername();
+        String ipAddress = getCurrentIpAddress();
+        String userAgent = getCurrentUserAgent();
+        String tenantId = getCurrentTenantId();
+        
+        return logEntityUpdateAsync(oldEntity, newEntity, username, ipAddress, userAgent, tenantId);
+    }
+    
     @Async
     @Transactional
-    public <T extends BaseEntity> CompletableFuture<List<AuditLog>> logEntityUpdate(T oldEntity, T newEntity) {
+    private <T extends BaseEntity> CompletableFuture<List<AuditLog>> logEntityUpdateAsync(
+            T oldEntity, T newEntity, String username, String ipAddress, String userAgent, String tenantId) {
         try {
             EntityType entityType = determineEntityType(newEntity);
-            String username = getCurrentUsername();
             List<AuditLog> auditLogs = new java.util.ArrayList<>();
             
             // Detect field-level changes
@@ -145,9 +166,9 @@ public class AuditService {
                     .oldValue(serializeValue(change.getOldValue()))
                     .newValue(serializeValue(change.getNewValue()))
                     .performedBy(username)
-                    .ipAddress(getCurrentIpAddress())
-                    .userAgent(getCurrentUserAgent())
-                    .tenantId(getCurrentTenantId())
+                    .ipAddress(ipAddress)
+                    .userAgent(userAgent)
+                    .tenantId(tenantId)
                     .build();
                 
                 auditLogs.add(auditLog);
@@ -175,12 +196,22 @@ public class AuditService {
      * @param <T> Entity type
      * @return CompletableFuture for async processing
      */
+    public <T extends BaseEntity> CompletableFuture<AuditLog> logEntityDeletion(T entity) {
+        // Capture context trong main thread trước khi chuyển async
+        String username = captureCurrentUsername();
+        String ipAddress = getCurrentIpAddress();
+        String userAgent = getCurrentUserAgent();
+        String tenantId = getCurrentTenantId();
+        
+        return logEntityDeletionAsync(entity, username, ipAddress, userAgent, tenantId);
+    }
+    
     @Async
     @Transactional  
-    public <T extends BaseEntity> CompletableFuture<AuditLog> logEntityDeletion(T entity) {
+    private <T extends BaseEntity> CompletableFuture<AuditLog> logEntityDeletionAsync(
+            T entity, String username, String ipAddress, String userAgent, String tenantId) {
         try {
             EntityType entityType = determineEntityType(entity);
-            String username = getCurrentUsername();
             
             AuditLog auditLog = AuditLog.builder()
                 .entityType(entityType)
@@ -189,9 +220,9 @@ public class AuditService {
                 .actionDescription(buildDeleteDescription(entityType, entity))
                 .oldValue(serializeEntityToJson(entity))
                 .performedBy(username)
-                .ipAddress(getCurrentIpAddress())
-                .userAgent(getCurrentUserAgent())
-                .tenantId(getCurrentTenantId())
+                .ipAddress(ipAddress)
+                .userAgent(userAgent)
+                .tenantId(tenantId)
                 .build();
             
             AuditLog savedAudit = auditLogRepository.save(auditLog);
@@ -221,8 +252,6 @@ public class AuditService {
      * @param newValue Giá trị mới (nullable)
      * @return CompletableFuture for async processing
      */
-    @Async
-    @Transactional
     public CompletableFuture<AuditLog> logVideoBusinessAction(
             Long videoId,
             AuditAction action, 
@@ -231,9 +260,24 @@ public class AuditService {
             Object oldValue,
             Object newValue) {
         
+        // Capture context trong main thread trước khi chuyển async
+        String username = captureCurrentUsername();
+        String ipAddress = getCurrentIpAddress();
+        String userAgent = getCurrentUserAgent();
+        String tenantId = getCurrentTenantId();
+        
+        return logVideoBusinessActionAsync(videoId, action, description, fieldName, 
+                                         oldValue, newValue, username, ipAddress, userAgent, tenantId);
+    }
+    
+    @Async
+    @Transactional
+    private CompletableFuture<AuditLog> logVideoBusinessActionAsync(
+            Long videoId, AuditAction action, String description, String fieldName,
+            Object oldValue, Object newValue, String username, String ipAddress, 
+            String userAgent, String tenantId) {
+        
         try {
-            String username = getCurrentUsername();
-            
             AuditLog auditLog = AuditLog.builder()
                 .entityType(EntityType.VIDEO)
                 .entityId(videoId)
@@ -243,9 +287,9 @@ public class AuditService {
                 .oldValue(serializeValue(oldValue))
                 .newValue(serializeValue(newValue))
                 .performedBy(username)
-                .ipAddress(getCurrentIpAddress())
-                .userAgent(getCurrentUserAgent())
-                .tenantId(getCurrentTenantId())
+                .ipAddress(ipAddress)
+                .userAgent(userAgent)
+                .tenantId(tenantId)
                 .build();
             
             AuditLog savedAudit = auditLogRepository.save(auditLog);
@@ -470,12 +514,27 @@ public class AuditService {
     
     /**
      * Get current username từ JWT token
+     * Capture username trong main thread trước khi chuyển sang async
      */
     private String getCurrentUsername() {
         try {
             return jwtTokenService.getCurrentUserNameFromJwt();
         } catch (Exception e) {
-            log.warn("Failed to get current username: {}", e.getMessage());
+            log.warn("Failed to get current username from JWT: {}", e.getMessage());
+            return "system";
+        }
+    }
+    
+    /**
+     * Capture username trong main thread để sử dụng trong async methods
+     */
+    private String captureCurrentUsername() {
+        try {
+            String username = jwtTokenService.getCurrentUserNameFromJwt();
+            log.debug("Captured username for async operation: {}", username);
+            return username;
+        } catch (Exception e) {
+            log.warn("Failed to capture current username: {}", e.getMessage());
             return "system";
         }
     }

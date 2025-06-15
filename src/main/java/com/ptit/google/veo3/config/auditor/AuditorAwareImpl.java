@@ -13,6 +13,7 @@ import java.util.Optional;
 @Slf4j
 public class AuditorAwareImpl implements AuditorAware<String> {
 
+    private static final String NAME = "name";
     private static final String PREFERRED_USERNAME = "preferred_username";
     private static final String SUB = "sub";
     private static final String SYSTEM = "system";
@@ -30,7 +31,11 @@ public class AuditorAwareImpl implements AuditorAware<String> {
 
         if (!this.isAnonymous() && (Objects.nonNull(authentication.getPrincipal()))) {
             if (authentication.getPrincipal() instanceof Jwt jwt) {
-                String username = jwt.getClaim(PREFERRED_USERNAME);
+                // Ưu tiên lấy từ claim "name" để đồng nhất với JwtTokenService
+                String username = jwt.getClaim(NAME);
+                if (username == null) {
+                    username = jwt.getClaim(PREFERRED_USERNAME);
+                }
                 if (username == null) {
                     username = jwt.getClaim(SUB);
                 }
