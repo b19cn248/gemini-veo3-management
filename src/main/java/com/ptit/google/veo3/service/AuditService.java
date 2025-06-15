@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ptit.google.veo3.entity.*;
 import com.ptit.google.veo3.repository.AuditLogRepository;
+import com.ptit.google.veo3.service.interfaces.IAuditService;
+import com.ptit.google.veo3.service.interfaces.IJwtTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,10 +58,10 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 @Slf4j
 @Transactional(readOnly = true)
-public class AuditService {
+public class AuditService implements IAuditService {
     
     private final AuditLogRepository auditLogRepository;
-    private final JwtTokenService jwtTokenService;
+    private final IJwtTokenService jwtTokenService;
     private final ObjectMapper objectMapper;
     
     // ============= CORE AUDIT METHODS =============

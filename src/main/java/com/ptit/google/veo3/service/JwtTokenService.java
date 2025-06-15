@@ -1,5 +1,7 @@
 package com.ptit.google.veo3.service;
 
+import com.ptit.google.veo3.dto.JwtUserInfo;
+import com.ptit.google.veo3.service.interfaces.IJwtTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -22,7 +24,7 @@ import org.springframework.stereotype.Service;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class JwtTokenService {
+public class JwtTokenService implements IJwtTokenService {
 
     /**
      * Lấy tên người dùng từ JWT token hiện tại trong Security Context
@@ -220,17 +222,4 @@ public class JwtTokenService {
         }
     }
     
-    /**
-     * DTO class chứa thông tin người dùng từ JWT
-     */
-    @lombok.Data
-    @lombok.Builder
-    @lombok.NoArgsConstructor
-    @lombok.AllArgsConstructor
-    public static class JwtUserInfo {
-        private String name;
-        private String email;
-        private String preferredUsername;
-        private String subject;
-    }
 }

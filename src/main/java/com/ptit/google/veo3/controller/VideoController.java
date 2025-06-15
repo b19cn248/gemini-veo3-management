@@ -1,18 +1,16 @@
 package com.ptit.google.veo3.controller;
 
-import com.ptit.google.veo3.dto.StaffSalaryDto;
-import com.ptit.google.veo3.dto.VideoRequestDto;
-import com.ptit.google.veo3.dto.VideoResponseDto;
-import com.ptit.google.veo3.dto.SalesSalaryDto;
+import com.ptit.google.veo3.dto.*;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.entity.VideoStatus;
 import com.ptit.google.veo3.multitenant.TenantContext;
-import com.ptit.google.veo3.service.JwtTokenService;
-import com.ptit.google.veo3.service.StaffWorkloadService;
-import com.ptit.google.veo3.service.VideoService;
 import com.ptit.google.veo3.service.VideoAutoResetService;
+import com.ptit.google.veo3.service.VideoService;
+import com.ptit.google.veo3.service.interfaces.IJwtTokenService;
+import com.ptit.google.veo3.service.interfaces.IStaffWorkloadService;
+import com.ptit.google.veo3.service.interfaces.IVideoService;
 import com.ptit.google.veo3.util.VideoPricingUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -64,9 +62,9 @@ import java.util.Map;
 @CrossOrigin(origins = "*") // Cho phép CORS từ mọi origin (production nên hạn chế)
 public class VideoController {
 
-    private final VideoService videoService;
-    private final JwtTokenService jwtTokenService;
-    private final StaffWorkloadService staffWorkloadService;
+    private final IVideoService videoService;
+    private final IJwtTokenService jwtTokenService;
+    private final IStaffWorkloadService staffWorkloadService;
     private final VideoAutoResetService videoAutoResetService;
 
     /**
@@ -77,8 +75,7 @@ public class VideoController {
      */
     @PostMapping
     public ResponseEntity<Map<String, Object>> createVideo(
-            @Valid @RequestBody VideoRequestDto requestDto,
-            @RequestHeader(value = "db", required = false) String dbHeader
+            @Valid @RequestBody VideoRequestDto requestDto
     ) {
         String tenantId = TenantContext.getTenantId();
         log.info("[Tenant: {}] Received request to create video for customer: {}", tenantId, requestDto.getCustomerName());
@@ -107,15 +104,15 @@ public class VideoController {
 
             BigDecimal orderValue = BigDecimal.valueOf(orderValueInt);
             requestDto.setOrderValue(orderValue);
-            
+
             // AUTO-CALCULATE PRICE: Sử dụng VideoPricingUtil để tính price
             BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(orderValue);
             if (calculatedPrice != null) {
                 requestDto.setPrice(calculatedPrice);
-                log.info("[Tenant: {}] Auto-calculated price {} for order value {} (customer: {})", 
+                log.info("[Tenant: {}] Auto-calculated price {} for order value {} (customer: {})",
                         tenantId, calculatedPrice, orderValue, requestDto.getCustomerName());
             } else {
-                log.warn("[Tenant: {}] No pricing rule found for order value {} (customer: {})", 
+                log.warn("[Tenant: {}] No pricing rule found for order value {} (customer: {})",
                         tenantId, orderValue, requestDto.getCustomerName());
             }
 
@@ -145,7 +142,6 @@ public class VideoController {
     @PutMapping("/{id}")
     public ResponseEntity<Map<String, Object>> updateVideo(
             @PathVariable Long id,
-            @RequestHeader(value = "db", required = false) String dbHeader,
             @Valid @RequestBody VideoRequestDto requestDto) {
 
         String tenantId = TenantContext.getTenantId();
@@ -173,15 +169,15 @@ public class VideoController {
 
         BigDecimal orderValue = BigDecimal.valueOf(orderValueInt);
         requestDto.setOrderValue(orderValue);
-        
+
         // AUTO-CALCULATE PRICE: Sử dụng VideoPricingUtil để tính price
         BigDecimal calculatedPrice = VideoPricingUtil.calculatePrice(orderValue);
         if (calculatedPrice != null) {
             requestDto.setPrice(calculatedPrice);
-            log.info("[Tenant: {}] Auto-calculated price {} for order value {} during update (video ID: {})", 
+            log.info("[Tenant: {}] Auto-calculated price {} for order value {} during update (video ID: {})",
                     tenantId, calculatedPrice, orderValue, id);
         } else {
-            log.warn("[Tenant: {}] No pricing rule found for order value {} during update (video ID: {})", 
+            log.warn("[Tenant: {}] No pricing rule found for order value {} during update (video ID: {})",
                     tenantId, orderValue, id);
         }
 
@@ -248,17 +244,17 @@ public class VideoController {
 
     /**
      * PATCH Cập nhật trạng thái video - Cập nhật trạng thái video
-     * 
+     * <p>
      * SECURITY: Chỉ có nhân viên được giao video mới có quyền cập nhật trạng thái
      * Logic phân quyền: So sánh trường "name" từ JWT token với assignedStaff của video
      *
      * @param id     - ID của video cần cập nhật
      * @param status - Trạng thái mới của video
      * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
-     *         - 200 OK: Cập nhật thành công
-     *         - 403 FORBIDDEN: Không có quyền cập nhật (không phải người được giao)
-     *         - 404 NOT_FOUND: Không tìm thấy video
-     *         - 400 BAD_REQUEST: Tham số không hợp lệ
+     * - 200 OK: Cập nhật thành công
+     * - 403 FORBIDDEN: Không có quyền cập nhật (không phải người được giao)
+     * - 404 NOT_FOUND: Không tìm thấy video
+     * - 400 BAD_REQUEST: Tham số không hợp lệ
      */
     @PatchMapping("/{id}/status")
     public ResponseEntity<Map<String, Object>> updateVideoStatus(
@@ -299,17 +295,17 @@ public class VideoController {
 
     /**
      * PATCH /api/v1/videos/{id}/video-url - Cập nhật link video
-     * 
+     * <p>
      * SECURITY: Chỉ có nhân viên được giao video mới có quyền cập nhật video URL
      * Logic phân quyền: So sánh trường "name" từ JWT token với assignedStaff của video
      *
      * @param id       - ID của video cần cập nhật
      * @param videoUrl - Link video mới
      * @return ResponseEntity chứa thông tin video sau khi cập nhật hoặc thông báo lỗi
-     *         - 200 OK: Cập nhật thành công
-     *         - 403 FORBIDDEN: Không có quyền cập nhật (không phải người được giao)
-     *         - 404 NOT_FOUND: Không tìm thấy video
-     *         - 400 BAD_REQUEST: Tham số không hợp lệ
+     * - 200 OK: Cập nhật thành công
+     * - 403 FORBIDDEN: Không có quyền cập nhật (không phải người được giao)
+     * - 404 NOT_FOUND: Không tìm thấy video
+     * - 400 BAD_REQUEST: Tham số không hợp lệ
      */
     @PatchMapping("/{id}/video-url")
     public ResponseEntity<Map<String, Object>> updateVideoUrl(
@@ -350,17 +346,17 @@ public class VideoController {
 
     /**
      * POST /api/v1/videos/{id}/cancel - Hủy video (ADMIN ONLY)
-     * 
+     * <p>
      * Reset video về trạng thái CHUA_AI_NHAN và assignedStaff = null
-     * 
+     * <p>
      * SECURITY: Chỉ có admin mới có quyền sử dụng API này
      * BUSINESS LOGIC: Reset video về trạng thái ban đầu
      *
      * @param id ID của video cần hủy
      * @return ResponseEntity chứa thông tin video sau khi hủy hoặc thông báo lỗi
-     *         - 200 OK: Hủy thành công
-     *         - 403 FORBIDDEN: Không phải admin
-     *         - 404 NOT_FOUND: Không tìm thấy video
+     * - 200 OK: Hủy thành công
+     * - 403 FORBIDDEN: Không phải admin
+     * - 404 NOT_FOUND: Không tìm thấy video
      */
     @PostMapping("/{id}/cancel")
     public ResponseEntity<Map<String, Object>> cancelVideo(@PathVariable Long id) {
@@ -382,7 +378,7 @@ public class VideoController {
             return createErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND);
 
         } catch (SecurityException e) {
-            log.warn("[Tenant: {}] Access denied for video cancel - video ID: {}, error: {}", 
+            log.warn("[Tenant: {}] Access denied for video cancel - video ID: {}, error: {}",
                     tenantId, id, e.getMessage());
             return createErrorResponse(e.getMessage(), HttpStatus.FORBIDDEN);
 
@@ -391,6 +387,7 @@ public class VideoController {
             return createErrorResponse("Lỗi khi hủy video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, Object>> deleteVideo(@PathVariable Long id) {
         String tenantId = TenantContext.getTenantId();
@@ -830,9 +827,9 @@ public class VideoController {
                     .sum();
 
             Map<String, Object> response = createSuccessResponse(
-                    date != null ? 
-                        String.format("Lấy thông tin lương nhân viên ngày %s thành công", date) :
-                        "Lấy thông tin lương nhân viên thành công",
+                    date != null ?
+                            String.format("Lấy thông tin lương nhân viên ngày %s thành công", date) :
+                            "Lấy thông tin lương nhân viên thành công",
                     salaries
             );
             response.put("totalStaff", salaries.size());
@@ -851,14 +848,14 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos/sales-salaries - Tính lương sales theo ngày thanh toán
-     * 
+     * <p>
      * Business Logic:
      * - Lọc videos có paymentStatus = 'DA_THANH_TOAN'
      * - Lọc theo paymentDate = currentDate
-     * - Group theo createdBy (sales person)  
+     * - Group theo createdBy (sales person)
      * - Tính tổng price per sales
      * - Hoa hồng = tổng price * 12%
-     * 
+     *
      * @param currentDate Ngày hiện tại cần thống kê (format: yyyy-MM-dd, required)
      * @return ResponseEntity chứa danh sách lương sales theo ngày
      */
@@ -888,7 +885,7 @@ public class VideoController {
                     String.format("Tính lương sales ngày %s thành công", currentDate),
                     salesSalaries
             );
-            
+
             // Thêm thông tin thống kê tổng quan
             response.put("summary", Map.of(
                     "totalSalesPersons", salesSalaries.size(),
@@ -914,7 +911,7 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos/staff-workload - Lấy thông tin workload của nhân viên
-     * 
+     * <p>
      * API mới để monitoring và debugging workload của từng nhân viên
      * Hữu ích cho việc theo dõi và quản lý phân bổ công việc
      *
@@ -925,18 +922,18 @@ public class VideoController {
     public ResponseEntity<Map<String, Object>> getStaffWorkload(
             @RequestParam(required = false) String staffName) {
         String tenantId = TenantContext.getTenantId();
-        
+
         try {
             // Nếu không có staffName thì lấy từ JWT của user hiện tại
             String targetStaff = staffName;
             if (!StringUtils.hasText(targetStaff)) {
                 targetStaff = jwtTokenService.getCurrentUserNameFromJwt();
             }
-            
+
             log.info("[Tenant: {}] Received request to get workload for staff: {}", tenantId, targetStaff);
-            
-            StaffWorkloadService.WorkloadInfo workloadInfo = staffWorkloadService.getWorkloadInfo(targetStaff);
-            
+
+            WorkloadInfo workloadInfo = staffWorkloadService.getWorkloadInfo(targetStaff);
+
             Map<String, Object> response = createSuccessResponse(
                     String.format("Lấy thông tin workload của nhân viên '%s' thành công", targetStaff),
                     Map.of(
@@ -955,9 +952,9 @@ public class VideoController {
                     )
             );
             response.put("tenantId", tenantId);
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             log.error("[Tenant: {}] Error getting staff workload: ", tenantId, e);
             return createErrorResponse("Lỗi khi lấy thông tin workload: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
@@ -966,7 +963,7 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos/auto-reset/status - Lấy thông tin trạng thái auto-reset system
-     * 
+     * <p>
      * API monitoring để kiểm tra:
      * - Số lượng video hiện tại đang quá hạn
      * - Thời gian timeout được cấu hình
@@ -978,11 +975,11 @@ public class VideoController {
     public ResponseEntity<Map<String, Object>> getAutoResetStatus() {
         String tenantId = TenantContext.getTenantId();
         log.info("[Tenant: {}] Received request to get auto-reset status", tenantId);
-        
+
         try {
             long expiredVideoCount = videoAutoResetService.getExpiredVideoCount();
             List<Video> expiredVideos = videoAutoResetService.getExpiredVideos();
-            
+
             Map<String, Object> response = createSuccessResponse(
                     "Lấy thông tin trạng thái auto-reset thành công",
                     Map.of(
@@ -1000,9 +997,9 @@ public class VideoController {
                     )
             );
             response.put("tenantId", tenantId);
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             log.error("[Tenant: {}] Error getting auto-reset status: ", tenantId, e);
             return createErrorResponse("Lỗi khi lấy thông tin auto-reset: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
@@ -1011,7 +1008,7 @@ public class VideoController {
 
     /**
      * POST /api/v1/videos/{id}/manual-reset - Reset manual một video cụ thể
-     * 
+     * <p>
      * API admin để reset manual video về trạng thái CHUA_AI_NHAN
      * Hữu ích cho testing hoặc xử lý exception cases
      *
@@ -1022,10 +1019,10 @@ public class VideoController {
     public ResponseEntity<Map<String, Object>> manualResetVideo(@PathVariable Long id) {
         String tenantId = TenantContext.getTenantId();
         log.info("[Tenant: {}] Received request to manual reset video ID: {}", tenantId, id);
-        
+
         try {
             boolean resetSuccess = videoAutoResetService.manualResetVideo(id);
-            
+
             if (resetSuccess) {
                 Map<String, Object> response = createSuccessResponse(
                         String.format("Video ID %d đã được reset thành công", id),
@@ -1035,10 +1032,10 @@ public class VideoController {
                 return ResponseEntity.ok(response);
             } else {
                 return createErrorResponse(
-                        String.format("Không thể reset video ID %d (có thể video không tồn tại hoặc chưa được assign)", id), 
+                        String.format("Không thể reset video ID %d (có thể video không tồn tại hoặc chưa được assign)", id),
                         HttpStatus.BAD_REQUEST);
             }
-            
+
         } catch (Exception e) {
             log.error("[Tenant: {}] Error manual resetting video ID {}: ", tenantId, id, e);
             return createErrorResponse("Lỗi khi reset video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
@@ -1047,7 +1044,7 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos/pricing-rules - Lấy tất cả pricing rules hiện tại
-     * 
+     *
      * API utility để xem mapping giữa order_value và price
      * Hữu ích cho documentation, testing và admin dashboard
      *
@@ -1209,14 +1206,14 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos/check-customer - Kiểm tra khách hàng đã tồn tại trong hệ thống
-     * 
+     * <p>
      * API này được sử dụng khi tạo mới video để cảnh báo nếu tên khách hàng đã tồn tại,
      * giúp tránh tình trạng trùng đơn hàng
-     * 
+     *
      * @param customerName Tên khách hàng cần kiểm tra (required)
      * @return ResponseEntity chứa thông tin về việc khách hàng có tồn tại hay không
-     *         - 200 OK: Trả về thông tin kiểm tra
-     *         - 400 BAD_REQUEST: Tên khách hàng không hợp lệ
+     * - 200 OK: Trả về thông tin kiểm tra
+     * - 400 BAD_REQUEST: Tên khách hàng không hợp lệ
      */
     @GetMapping("/check-customer")
     public ResponseEntity<Map<String, Object>> checkCustomerExists(
@@ -1237,15 +1234,15 @@ public class VideoController {
 
             // Kiểm tra khách hàng đã tồn tại
             boolean exists = videoService.checkCustomerExists(trimmedCustomerName);
-            
+
             Map<String, Object> response = createSuccessResponse(
                     exists ? "Khách hàng đã tồn tại trong hệ thống" : "Khách hàng chưa tồn tại trong hệ thống",
                     Map.of(
                             "customerName", trimmedCustomerName,
                             "exists", exists,
-                            "warning", exists ? 
-                                String.format("Khách hàng '%s' đã tồn tại trong hệ thống, kiểm tra lại xem có thể bị trung đơn", trimmedCustomerName) : 
-                                null
+                            "warning", exists ?
+                                    String.format("Khách hàng '%s' đã tồn tại trong hệ thống, kiểm tra lại xem có thể bị trung đơn", trimmedCustomerName) :
+                                    null
                     )
             );
             response.put("tenantId", tenantId);

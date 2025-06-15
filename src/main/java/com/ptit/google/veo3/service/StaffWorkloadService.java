@@ -1,7 +1,9 @@
 package com.ptit.google.veo3.service;
 
+import com.ptit.google.veo3.dto.WorkloadInfo;
 import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.repository.VideoRepository;
+import com.ptit.google.veo3.service.interfaces.IStaffWorkloadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,7 +29,7 @@ import java.util.List;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class StaffWorkloadService {
+public class StaffWorkloadService implements IStaffWorkloadService {
 
     private final VideoRepository videoRepository;
     
@@ -149,34 +151,4 @@ public class StaffWorkloadService {
                 .build();
     }
     
-    /**
-     * DTO class chứa thông tin chi tiết về workload của nhân viên
-     */
-    @lombok.Data
-    @lombok.Builder
-    @lombok.NoArgsConstructor
-    @lombok.AllArgsConstructor
-    public static class WorkloadInfo {
-        private String assignedStaff;
-        private long totalActive;
-        private long dangLamCount;
-        private long dangSuaCount;
-        private long canSuaGapCount;
-        private boolean canAcceptNewTask;
-        private int maxConcurrentVideos;
-        private List<Video> activeVideos;
-        
-        public static WorkloadInfo empty() {
-            return WorkloadInfo.builder()
-                    .assignedStaff("")
-                    .totalActive(0)
-                    .dangLamCount(0)
-                    .dangSuaCount(0)
-                    .canSuaGapCount(0)
-                    .canAcceptNewTask(true)
-                    .maxConcurrentVideos(MAX_CONCURRENT_VIDEOS)
-                    .activeVideos(List.of())
-                    .build();
-        }
-    }
 }

@@ -3,7 +3,13 @@
     "allow": [
       "Bash(mvn:*)",
       "Bash(./mvnw:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(mkdir:*)",
+      "Bash(grep:*)",
+      "Bash(docker run:*)",
+      "Bash(find:*)",
+      "Bash(export:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

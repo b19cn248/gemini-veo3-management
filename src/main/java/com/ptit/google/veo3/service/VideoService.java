@@ -11,6 +11,11 @@ import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.entity.VideoStatus;
 import com.ptit.google.veo3.repository.VideoRepository;
+import com.ptit.google.veo3.service.interfaces.IVideoService;
+import com.ptit.google.veo3.service.interfaces.IJwtTokenService;
+import com.ptit.google.veo3.service.interfaces.IStaffWorkloadService;
+import com.ptit.google.veo3.service.interfaces.IAuditService;
+import com.ptit.google.veo3.dto.WorkloadInfo;
 import com.ptit.google.veo3.util.VideoPricingUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,18 +37,18 @@ import java.util.Optional;
 
 /**
  * Service class chứa business logic để xử lý các operations liên quan đến Video
- * Tuân theo Single Responsibility Principle
+ * Implements IVideoService interface - following Dependency Inversion Principle
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 @Transactional(readOnly = true)
-public class VideoService {
+public class VideoService implements IVideoService {
 
     private final VideoRepository videoRepository;
-    private final JwtTokenService jwtTokenService;
-    private final StaffWorkloadService staffWorkloadService;
-    private final AuditService auditService;
+    private final IJwtTokenService jwtTokenService;
+    private final IStaffWorkloadService staffWorkloadService;
+    private final IAuditService auditService;
     /**
      * Tạo mới một video record
      * 
@@ -162,7 +167,7 @@ public class VideoService {
                 staffWorkloadService.validateCanAcceptNewTask(assignedStaff.trim());
                 
                 // Log workload info để monitoring
-                StaffWorkloadService.WorkloadInfo workloadInfo = 
+                WorkloadInfo workloadInfo = 
                         staffWorkloadService.getWorkloadInfo(assignedStaff.trim());
                 log.info("Staff '{}' workload before assignment: {} active videos (DANG_LAM: {}, DANG_SUA: {}, CAN_SUA_GAP: {})",
                         assignedStaff.trim(), workloadInfo.getTotalActive(), 
@@ -570,7 +575,7 @@ public class VideoService {
      * Tìm kiếm video trong khoảng thời gian tạo
      */
     public Page<VideoResponseDto> getVideosByDateRange(LocalDateTime startDate, LocalDateTime endDate,
-                                                       int page, int size) {
+                                                       int page, int size, String sortBy, String sortDirection) {
         log.info("Fetching videos created between {} and {}", startDate, endDate);
 
         if (startDate == null || endDate == null) {
@@ -581,7 +586,9 @@ public class VideoService {
             throw new IllegalArgumentException("Ngày bắt đầu phải trước ngày kết thúc");
         }
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String sort = StringUtils.hasText(sortBy) ? sortBy : "createdAt";
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sort));
         Page<Video> videoPage = videoRepository.findByCreatedAtBetween(startDate, endDate, pageable);
         log.info("Found {} videos created between {} and {}", videoPage.getTotalElements(), startDate, endDate);
         return videoPage.map(this::mapToResponseDto);
@@ -1048,6 +1055,7 @@ public class VideoService {
                 .paymentStatus(video.getPaymentStatus())
                 .paymentDate(video.getPaymentDate())
                 .orderValue(video.getOrderValue())
+                .price(video.getPrice())
                 .build();
     }
 
