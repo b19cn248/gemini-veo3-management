@@ -755,6 +755,12 @@ public class VideoService implements IVideoService {
                     ". Các trạng thái hợp lệ: CHUA_THANH_TOAN, DA_THANH_TOAN");
         }
 
+        // Kiểm tra nếu trạng thái hiện tại đã là DA_THANH_TOAN thì không cho phép update
+        if (existingVideo.getPaymentStatus() == PaymentStatus.DA_THANH_TOAN) {
+            log.warn("Cannot update payment status for video ID: {} - already paid", id);
+            throw new IllegalArgumentException("Không thể cập nhật trạng thái thanh toán: Video đã được thanh toán");
+        }
+
         // Lưu giá trị cũ để audit logging
         PaymentStatus oldPaymentStatus = existingVideo.getPaymentStatus();
         
