@@ -169,6 +169,13 @@ public class VideoService implements IVideoService {
 
         Video existingVideo = findVideoByIdOrThrow(id);
 
+        // CHECK IF VIDEO ALREADY HAS ASSIGNED STAFF
+        if (existingVideo.getAssignedStaff() != null && 
+            !existingVideo.getAssignedStaff().trim().isEmpty()) {
+            log.warn("Video ID {} already has assigned staff: {}", id, existingVideo.getAssignedStaff());
+            throw new IllegalArgumentException("Đã có người nhận video này, tải lại trang");
+        }
+
         // Validate assigned staff length
         if (assignedStaff != null && assignedStaff.trim().length() > 255) {
             throw new IllegalArgumentException("Tên nhân viên không được vượt quá 255 ký tự");
