@@ -50,6 +50,7 @@ public class VideoService implements IVideoService {
     private final IStaffWorkloadService staffWorkloadService;
     private final IAuditService auditService;
     private final IVideoPricingService videoPricingService;
+    private final NotificationService notificationService;
     /**
      * Tạo mới một video record
      * 
@@ -342,6 +343,19 @@ public class VideoService implements IVideoService {
                 oldStatus.name(),
                 status.name()
             );
+        }
+
+        // NOTIFICATION LOGIC: Gửi notification khi trạng thái thay đổi thành DA_SUA_XONG
+        if (status == VideoStatus.DA_SUA_XONG) {
+            try {
+                String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
+                notificationService.sendFixCompletedNotification(updatedVideo, currentUser);
+                log.info("Sent fix completed notification for video ID {} to creator: {}", 
+                        id, updatedVideo.getCreatedBy());
+            } catch (Exception e) {
+                log.error("Error sending fix completed notification for video ID {}: ", id, e);
+                // Không throw exception để không ảnh hưởng đến việc update status
+            }
         }
 
         log.info("Video status updated successfully for video ID: {} to status: {} by user: {}", 
@@ -732,7 +746,7 @@ public class VideoService implements IVideoService {
         } catch (IllegalArgumentException e) {
             log.warn("Invalid delivery status: '{}'", statusString);
             throw new IllegalArgumentException("Trạng thái giao hàng không hợp lệ: " + statusString +
-                    ".Các trạng thái hợp lệ: CHUA_GUI, DANG_GUI, DA_GUI");
+                    ". Các trạng thái hợp lệ: CHUA_GUI, DA_GUI, CAN_SUA_GAP");
         }
 
         // Lưu giá trị cũ để audit logging
@@ -752,6 +766,19 @@ public class VideoService implements IVideoService {
                 oldDeliveryStatus != null ? oldDeliveryStatus.name() : null,
                 status.name()
             );
+        }
+
+        // NOTIFICATION LOGIC: Gửi notification khi trạng thái thay đổi thành CAN_SUA_GAP
+        if (status == DeliveryStatus.CAN_SUA_GAP) {
+            try {
+                String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
+                notificationService.sendUrgentFixNotification(updatedVideo, currentUser);
+                log.info("Sent urgent fix notification for video ID {} to assigned staff: {}", 
+                        id, updatedVideo.getAssignedStaff());
+            } catch (Exception e) {
+                log.error("Error sending urgent fix notification for video ID {}: ", id, e);
+                // Không throw exception để không ảnh hưởng đến việc update status
+            }
         }
 
         log.info("Delivery status updated successfully for video ID: {} to status: {}", id, status);
@@ -838,9 +865,10 @@ public class VideoService implements IVideoService {
 
     /**
      * Tính tổng tiền lương cho các nhân viên
+     * Bao gồm cả các video đã thanh toán và bị bùng
      */
     public List<StaffSalaryDto> calculateStaffSalaries(LocalDate date) {
-        log.info("Calculating staff salaries for date: {}", date);
+        log.info("Calculating staff salaries for date: {} (including unpaid orders)", date);
         List<StaffSalaryDto> salaries = videoRepository.calculateStaffSalaries(date);
         log.info("Found salary information for {} staff members", salaries.size());
         return salaries;

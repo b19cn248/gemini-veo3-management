@@ -13,6 +13,10 @@
       "enforcement-mode": "DISABLED"
     },
     {
+      "path": "/api/v1/notifications/*",
+      "enforcement-mode": "DISABLED"
+    },
+    {
       "path": "/v3/api-docs/*",
       "enforcement-mode": "DISABLED"
     },

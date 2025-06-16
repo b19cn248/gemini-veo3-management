@@ -84,7 +84,7 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
             "COUNT(v)) " +
             "FROM Video v " +
             "WHERE v.isDeleted = false " +
-            "AND v.paymentStatus = 'DA_THANH_TOAN' " +
+            "AND v.paymentStatus IN ('DA_THANH_TOAN', 'BUNG') " +
             "AND (:date IS NULL OR DATE(v.paymentDate) = :date) " +
             "GROUP BY v.assignedStaff")
     List<StaffSalaryDto> calculateStaffSalaries(@Param("date") LocalDate date);

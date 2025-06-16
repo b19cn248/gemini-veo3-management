@@ -42,7 +42,7 @@ public class OAuth2ResourceServerSecurityConfiguration {
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**",
                                 "/api/v1/articles/rss-feed", "/api/v1/build/**",
                                 "/api/v1/articles/check-article-exists",
-                                "/api/v1/n8n/**",
+                                "/api/v1/n8n/**", "/api/v1/notifications",
                                 "/api/v1/gemini/generate"
                         ).permitAll()
                         .anyRequest().authenticated()

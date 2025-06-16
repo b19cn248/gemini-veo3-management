@@ -770,7 +770,7 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos/staff-salaries - Lấy tổng tiền lương của các nhân viên
-     * Chỉ tính các video đã thanh toán
+     * Tính các video đã thanh toán và bị bùng
      * Có thể lọc theo ngày thanh toán
      *
      * @param date Ngày cần thống kê (format: yyyy-MM-dd, optional)
@@ -790,15 +790,15 @@ public class VideoController {
                     .map(StaffSalaryDto::getTotalSalary)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            // Tính tổng số video đã thanh toán
+            // Tính tổng số video đã thanh toán và bị bùng
             Long totalVideos = salaries.stream()
                     .mapToLong(StaffSalaryDto::getTotalVideos)
                     .sum();
 
             Map<String, Object> response = createSuccessResponse(
                     date != null ?
-                            String.format("Lấy thông tin lương nhân viên ngày %s thành công", date) :
-                            "Lấy thông tin lương nhân viên thành công",
+                            String.format("Lấy thông tin lương nhân viên ngày %s thành công (bao gồm đơn bị bùng)", date) :
+                            "Lấy thông tin lương nhân viên thành công (bao gồm đơn bị bùng)",
                     salaries
             );
             response.put("totalStaff", salaries.size());

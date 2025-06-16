@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="06-create-notifications-table" author="claude">
+        <comment>Create notifications table for real-time notification management</comment>
+        
+        <createTable tableName="notifications">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            
+            <column name="video_id" type="BIGINT">
+                <constraints nullable="true"/>
+            </column>
+            
+            <column name="recipient_username" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="sender_username" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="notification_type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="title" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="message" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="customer_name" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+            
+            <column name="new_status" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            
+            <column name="old_status" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            
+            <column name="is_read" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            
+            
+            <column name="read_at" type="TIMESTAMP">
+                <constraints nullable="true"/>
+            </column>
+            
+            <column name="tenant_id" type="VARCHAR(50)">
+                <constraints nullable="true"/>
+            </column>
+            
+            
+            <!-- BaseEntity fields -->
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="created_by" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="updated_by" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="is_deleted" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        
+        <!-- Add foreign key constraint to videos table -->
+        <addForeignKeyConstraint 
+            baseTableName="notifications" 
+            baseColumnNames="video_id"
+            referencedTableName="videos" 
+            referencedColumnNames="id"
+            constraintName="fk_notifications_video_id"
+            onDelete="SET NULL"/>
+        
+        <!-- Create indexes for query performance -->
+        <createIndex indexName="idx_recipient_created" tableName="notifications">
+            <column name="recipient_username"/>
+            <column name="created_at"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_recipient_unread" tableName="notifications">
+            <column name="recipient_username"/>
+            <column name="is_read"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_video_id" tableName="notifications">
+            <column name="video_id"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_tenant_id" tableName="notifications">
+            <column name="tenant_id"/>
+        </createIndex>
+        
+        <!-- Add check constraint for notification_type -->
+        <sql>
+            ALTER TABLE notifications 
+            ADD CONSTRAINT chk_notification_type 
+            CHECK (notification_type IN ('VIDEO_NEEDS_URGENT_FIX', 'VIDEO_FIXED_COMPLETED'));
+        </sql>
+        
+        <rollback>
+            <dropTable tableName="notifications"/>
+        </rollback>
+    </changeSet>
+    
+</databaseChangeLog>

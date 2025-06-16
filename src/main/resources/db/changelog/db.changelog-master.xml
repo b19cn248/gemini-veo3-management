@@ -35,4 +35,7 @@
     <!-- Version 1.6: Audit Logs feature - Tạo hệ thống tracking lịch sử video -->
     <include file="db/changelog/05-create-audit-logs-table.xml" relativeToChangelogFile="false"/>
 
+    <!-- Version 1.7: Notifications feature - Tạo hệ thống quản lý notifications -->
+    <include file="db/changelog/06-create-notifications-table.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>
