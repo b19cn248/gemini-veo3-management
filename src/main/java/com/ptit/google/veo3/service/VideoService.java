@@ -110,6 +110,18 @@ public class VideoService implements IVideoService {
 
         Video existingVideo = findVideoByIdOrThrow(id);
         
+        // Kiểm tra quyền: admin có quyền sửa tất cả, người tạo hoặc người được assign có quyền sửa
+        boolean isAdmin = jwtTokenService.isCurrentUserAdmin();
+        String currentUserName = jwtTokenService.getCurrentUserNameFromJwt();
+        
+        if (!isAdmin && 
+            !currentUserName.equals(existingVideo.getCreatedBy()) && 
+            !currentUserName.equals(existingVideo.getAssignedStaff())) {
+            log.warn("Access denied: User {} (admin: {}) tried to update video ID {} which was created by {} and assigned to {}", 
+                    currentUserName, isAdmin, id, existingVideo.getCreatedBy(), existingVideo.getAssignedStaff());
+            throw new SecurityException("Bạn không phải là người tạo video hoặc được assign cho video này nên không có quyền thao tác");
+        }
+        
         // Lưu lại giá trị cũ để logging
         BigDecimal oldOrderValue = existingVideo.getOrderValue();
         BigDecimal oldPrice = existingVideo.getPrice();
@@ -438,6 +450,18 @@ public class VideoService implements IVideoService {
         Video video = videoRepository.findById(id).orElseThrow(
                 () -> new VideoNotFoundException("Không tìm thấy video với ID: " + id)
         );
+        
+        // Kiểm tra quyền: admin có quyền xóa tất cả, người tạo hoặc người được assign có quyền xóa
+        boolean isAdmin = jwtTokenService.isCurrentUserAdmin();
+        String currentUserName = jwtTokenService.getCurrentUserNameFromJwt();
+        
+        if (!isAdmin && 
+            !currentUserName.equals(video.getCreatedBy()) && 
+            !currentUserName.equals(video.getAssignedStaff())) {
+            log.warn("Access denied: User {} (admin: {}) tried to delete video ID {} which was created by {} and assigned to {}", 
+                    currentUserName, isAdmin, id, video.getCreatedBy(), video.getAssignedStaff());
+            throw new SecurityException("Bạn không phải là người tạo video hoặc được assign cho video này nên không có quyền thao tác");
+        }
 
         video.setIsDeleted(true);
         videoRepository.save(video);
@@ -753,13 +777,14 @@ public class VideoService implements IVideoService {
         } catch (IllegalArgumentException e) {
             log.warn("Invalid payment status: '{}'", statusString);
             throw new IllegalArgumentException("Trạng thái thanh toán không hợp lệ: " + statusString +
-                    ". Các trạng thái hợp lệ: CHUA_THANH_TOAN, DA_THANH_TOAN");
+                    ". Các trạng thái hợp lệ: CHUA_THANH_TOAN, DA_THANH_TOAN, BUNG");
         }
 
-        // Kiểm tra nếu trạng thái hiện tại đã là DA_THANH_TOAN thì không cho phép update
-        if (existingVideo.getPaymentStatus() == PaymentStatus.DA_THANH_TOAN) {
-            log.warn("Cannot update payment status for video ID: {} - already paid", id);
-            throw new IllegalArgumentException("Không thể cập nhật trạng thái thanh toán: Video đã được thanh toán");
+        // Kiểm tra nếu trạng thái hiện tại đã là DA_THANH_TOAN hoặc BUNG thì không cho phép update
+        if (existingVideo.getPaymentStatus() == PaymentStatus.DA_THANH_TOAN || 
+            existingVideo.getPaymentStatus() == PaymentStatus.BUNG) {
+            log.warn("Cannot update payment status for video ID: {} - current status: {}", id, existingVideo.getPaymentStatus());
+            throw new IllegalArgumentException("Không thể cập nhật trạng thái thanh toán khi là đã thanh toán hoặc bùng");
         }
 
         // Lưu giá trị cũ để audit logging
