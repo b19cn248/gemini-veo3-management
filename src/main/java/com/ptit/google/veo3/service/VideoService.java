@@ -50,7 +50,6 @@ public class VideoService implements IVideoService {
     private final IStaffWorkloadService staffWorkloadService;
     private final IAuditService auditService;
     private final IVideoPricingService videoPricingService;
-    private final NotificationService notificationService;
     /**
      * Tạo mới một video record
      * 
@@ -350,19 +349,6 @@ public class VideoService implements IVideoService {
                 oldStatus.name(),
                 status.name()
             );
-        }
-
-        // NOTIFICATION LOGIC: Gửi notification khi trạng thái thay đổi thành DA_SUA_XONG
-        if (status == VideoStatus.DA_SUA_XONG) {
-            try {
-                String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
-                notificationService.sendFixCompletedNotification(updatedVideo, currentUser);
-                log.info("Sent fix completed notification for video ID {} to creator: {}", 
-                        id, updatedVideo.getCreatedBy());
-            } catch (Exception e) {
-                log.error("Error sending fix completed notification for video ID {}: ", id, e);
-                // Không throw exception để không ảnh hưởng đến việc update status
-            }
         }
 
         log.info("Video status updated successfully for video ID: {} to status: {} by user: {}", 
@@ -775,18 +761,6 @@ public class VideoService implements IVideoService {
             );
         }
 
-        // NOTIFICATION LOGIC: Gửi notification khi trạng thái thay đổi thành CAN_SUA_GAP
-        if (status == DeliveryStatus.CAN_SUA_GAP) {
-            try {
-                String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
-                notificationService.sendUrgentFixNotification(updatedVideo, currentUser);
-                log.info("Sent urgent fix notification for video ID {} to assigned staff: {}", 
-                        id, updatedVideo.getAssignedStaff());
-            } catch (Exception e) {
-                log.error("Error sending urgent fix notification for video ID {}: ", id, e);
-                // Không throw exception để không ảnh hưởng đến việc update status
-            }
-        }
 
         log.info("Delivery status updated successfully for video ID: {} to status: {}", id, status);
         return mapToResponseDto(updatedVideo);

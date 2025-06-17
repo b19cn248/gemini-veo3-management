@@ -40,7 +40,7 @@ spring:
       # QUAN TRỌNG: Đổi từ 'update' sang 'validate'
       # để Liquibase quản lý schema thay vì Hibernate
       ddl-auto: none
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect

@@ -9,7 +9,8 @@
       "Bash(docker run:*)",
       "Bash(find:*)",
       "Bash(export:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(java:*)"
     ],
     "deny": []
   }
