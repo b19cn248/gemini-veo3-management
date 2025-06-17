@@ -814,11 +814,23 @@ public class VideoService implements IVideoService {
                     ". Các trạng thái hợp lệ: CHUA_THANH_TOAN, DA_THANH_TOAN, BUNG");
         }
 
+        // Kiểm tra quyền admin - nếu là admin thì bỏ qua các validation khác
+        boolean isAdmin = jwtTokenService.isCurrentUserAdmin();
+        log.info("Payment status update - User is admin: {}", isAdmin);
+
         // Kiểm tra nếu trạng thái hiện tại đã là DA_THANH_TOAN hoặc BUNG thì không cho phép update
-        if (existingVideo.getPaymentStatus() == PaymentStatus.DA_THANH_TOAN || 
-            existingVideo.getPaymentStatus() == PaymentStatus.BUNG) {
+        // TRỪ KHI người dùng là admin
+        if (!isAdmin && (existingVideo.getPaymentStatus() == PaymentStatus.DA_THANH_TOAN || 
+            existingVideo.getPaymentStatus() == PaymentStatus.BUNG)) {
             log.warn("Cannot update payment status for video ID: {} - current status: {}", id, existingVideo.getPaymentStatus());
             throw new IllegalArgumentException("Không thể cập nhật trạng thái thanh toán khi là đã thanh toán hoặc bùng");
+        }
+
+        // Log thông tin đặc biệt nếu admin đang bypass validation
+        if (isAdmin && (existingVideo.getPaymentStatus() == PaymentStatus.DA_THANH_TOAN || 
+            existingVideo.getPaymentStatus() == PaymentStatus.BUNG)) {
+            log.info("Admin is bypassing payment status validation for video ID: {} - changing from {} to {}", 
+                    id, existingVideo.getPaymentStatus(), status);
         }
 
         // Lưu giá trị cũ để audit logging
@@ -835,11 +847,19 @@ public class VideoService implements IVideoService {
         
         // Audit log cho việc thay đổi trạng thái thanh toán
         if (oldPaymentStatus != status) {
+            String auditMessage = String.format("Thay đổi trạng thái thanh toán từ '%s' sang '%s'", 
+                oldPaymentStatus != null ? oldPaymentStatus : "CHUA_THANH_TOAN", status);
+            
+            // Thêm thông tin admin bypass vào audit log
+            if (isAdmin && (oldPaymentStatus == PaymentStatus.DA_THANH_TOAN || 
+                oldPaymentStatus == PaymentStatus.BUNG)) {
+                auditMessage += " (Admin bypassed validation)";
+            }
+            
             auditService.logVideoBusinessAction(
                 updatedVideo.getId(),
                 AuditAction.UPDATE_PAYMENT_STATUS,
-                String.format("Thay đổi trạng thái thanh toán từ '%s' sang '%s'", 
-                    oldPaymentStatus != null ? oldPaymentStatus : "CHUA_THANH_TOAN", status),
+                auditMessage,
                 "paymentStatus",
                 oldPaymentStatus != null ? oldPaymentStatus.name() : null,
                 status.name()
