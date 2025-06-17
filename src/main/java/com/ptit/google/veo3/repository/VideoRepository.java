@@ -204,7 +204,11 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
                 COALESCE(v.createdBy, 'Unknown Sales') as salesName,
                 COUNT(v) as totalPaidVideos,
                 COALESCE(SUM(v.price), 0) as totalSalesValue,
-                COALESCE(SUM(v.price) * 0.12, 0) as commissionSalary
+                CASE 
+                    WHEN LOWER(TRIM(COALESCE(v.createdBy, ''))) IN ('thuong nguyen', 'thuong')
+                    THEN COALESCE(SUM(v.price) * 0.12, 0)
+                    ELSE COALESCE(SUM(v.price) * 0.10, 0)
+                END as commissionSalary
             FROM Video v 
             WHERE v.isDeleted = false 
             AND v.paymentStatus = 'DA_THANH_TOAN' 
@@ -226,7 +230,11 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
                 COALESCE(v.created_by, 'Unknown Sales') as sales_name,
                 COUNT(v.id) as total_paid_videos,
                 COALESCE(SUM(v.price), 0) as total_sales_value,
-                COALESCE(SUM(v.price) * 0.12, 0) as commission_salary
+                CASE 
+                    WHEN LOWER(TRIM(COALESCE(v.created_by, ''))) IN ('thuong nguyen', 'thuong')
+                    THEN COALESCE(SUM(v.price) * 0.12, 0)
+                    ELSE COALESCE(SUM(v.price) * 0.10, 0)
+                END as commission_salary
             FROM videos v 
             WHERE v.is_deleted = false 
             AND v.payment_status = 'DA_THANH_TOAN' 

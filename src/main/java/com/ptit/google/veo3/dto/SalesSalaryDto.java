@@ -12,7 +12,7 @@ import java.math.BigDecimal;
  * 
  * Tính lương dựa trên:
  * - Tổng giá trị price của videos đã thanh toán trong ngày
- * - Hoa hồng 12% trên tổng giá trị
+ * - Hoa hồng biến động: 12% cho 'Thuong Nguyen'/'thuong', 10% cho những sales khác
  * - Group theo createdBy (sales person)
  * - Filter theo paymentDate
  * 
@@ -46,12 +46,13 @@ public class SalesSalaryDto {
     private BigDecimal totalSalesValue;
     
     /**
-     * Tiền lương = totalSalesValue * 0.12 (12% commission)
+     * Tiền lương = totalSalesValue * commissionRate
+     * CommissionRate: 12% cho 'Thuong Nguyen'/'thuong', 10% cho sales khác
      */
     private BigDecimal commissionSalary;
     
     /**
-     * Tỷ lệ hoa hồng (mặc định 12%)
+     * Tỷ lệ hoa hồng (12% cho 'Thuong Nguyen'/'thuong', 10% cho sales khác)
      */
     private BigDecimal commissionRate;
 }
