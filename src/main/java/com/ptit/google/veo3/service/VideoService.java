@@ -818,6 +818,12 @@ public class VideoService implements IVideoService {
         boolean isAdmin = jwtTokenService.isCurrentUserAdmin();
         log.info("Payment status update - User is admin: {}", isAdmin);
 
+        // Kiểm tra nếu không phải admin và muốn chuyển sang trạng thái BUNG
+        if (!isAdmin && status == PaymentStatus.BUNG) {
+            log.warn("Non-admin user attempting to set payment status to BUNG for video ID: {}", id);
+            throw new IllegalArgumentException("Chỉ có admin mới được phép chuyển trạng thái thanh toán sang bùng");
+        }
+
         // Kiểm tra nếu trạng thái hiện tại đã là DA_THANH_TOAN hoặc BUNG thì không cho phép update
         // TRỪ KHI người dùng là admin
         if (!isAdmin && (existingVideo.getPaymentStatus() == PaymentStatus.DA_THANH_TOAN || 
@@ -850,10 +856,15 @@ public class VideoService implements IVideoService {
             String auditMessage = String.format("Thay đổi trạng thái thanh toán từ '%s' sang '%s'", 
                 oldPaymentStatus != null ? oldPaymentStatus : "CHUA_THANH_TOAN", status);
             
-            // Thêm thông tin admin bypass vào audit log
+            // Thêm thông tin admin actions vào audit log
             if (isAdmin && (oldPaymentStatus == PaymentStatus.DA_THANH_TOAN || 
                 oldPaymentStatus == PaymentStatus.BUNG)) {
                 auditMessage += " (Admin bypassed validation)";
+            }
+            
+            // Thêm thông tin khi admin chuyển sang trạng thái BUNG
+            if (isAdmin && status == PaymentStatus.BUNG) {
+                auditMessage += " (Admin-only action)";
             }
             
             auditService.logVideoBusinessAction(
