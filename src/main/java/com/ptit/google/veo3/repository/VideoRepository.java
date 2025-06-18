@@ -205,7 +205,7 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
                 COUNT(v) as totalPaidVideos,
                 COALESCE(SUM(v.price), 0) as totalSalesValue,
                 CASE 
-                    WHEN LOWER(TRIM(COALESCE(v.createdBy, ''))) IN ('thuong nguyen', 'thuong')
+                    WHEN LOWER(TRIM(COALESCE(v.createdBy, ''))) IN ('thuong nguyen', 'thuong', 'Nguyễn Thuỳ Hạnh')
                     THEN COALESCE(SUM(v.price) * 0.12, 0)
                     ELSE COALESCE(SUM(v.price) * 0.10, 0)
                 END as commissionSalary
