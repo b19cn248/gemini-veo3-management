@@ -36,6 +36,15 @@ public interface StaffLimitRepository extends JpaRepository<StaffLimit, Long> {
     boolean existsByStaffNameAndIsActiveTrueAndEndDateAfter(String staffName, LocalDateTime currentTime);
 
     /**
+     * Tìm limit đang active của một nhân viên tại thời điểm hiện tại
+     * 
+     * @param staffName Tên nhân viên
+     * @param currentTime Thời điểm hiện tại
+     * @return Optional chứa StaffLimit nếu tìm thấy
+     */
+    Optional<StaffLimit> findByStaffNameAndIsActiveTrueAndEndDateAfter(String staffName, LocalDateTime currentTime);
+
+    /**
      * Lấy danh sách tất cả limits đang active
      * 
      * @return List chứa các StaffLimit đang active

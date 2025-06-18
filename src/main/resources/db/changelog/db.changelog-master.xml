@@ -44,4 +44,7 @@
     <!-- Version 1.8.1: Fix Staff Limits unique constraint -->
     <include file="db/changelog/08-fix-staff-limits-unique-constraint.xml" relativeToChangelogFile="false"/>
 
+    <!-- Version 1.8.2: Add configurable max orders per day to staff limits -->
+    <include file="db/changelog/09-add-max-orders-per-day-to-staff-limits.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

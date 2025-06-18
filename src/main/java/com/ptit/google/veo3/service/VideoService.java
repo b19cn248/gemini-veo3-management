@@ -969,7 +969,7 @@ public class VideoService implements IVideoService {
     }
     
     /**
-     * Thiết lập giới hạn cho nhân viên trong số ngày nhất định
+     * Thiết lập giới hạn cho nhân viên trong số ngày nhất định (với giá trị mặc định cho maxOrdersPerDay)
      * 
      * @param staffName Tên nhân viên cần giới hạn
      * @param lockDays Số ngày giới hạn (từ hiện tại)
@@ -978,6 +978,20 @@ public class VideoService implements IVideoService {
      */
     @Transactional
     public void setStaffLimit(String staffName, Integer lockDays) {
+        setStaffLimit(staffName, lockDays, 3); // Giá trị mặc định là 3 đơn/ngày
+    }
+    
+    /**
+     * Thiết lập giới hạn cho nhân viên trong số ngày nhất định với số đơn tối đa có thể cấu hình
+     * 
+     * @param staffName Tên nhân viên cần giới hạn
+     * @param lockDays Số ngày giới hạn (từ hiện tại)
+     * @param maxOrdersPerDay Số đơn tối đa có thể nhận trong một ngày
+     * @throws IllegalArgumentException nếu tham số không hợp lệ
+     * @throws SecurityException nếu không phải admin
+     */
+    @Transactional
+    public void setStaffLimit(String staffName, Integer lockDays, Integer maxOrdersPerDay) {
         // Validate input parameters
         if (staffName == null || staffName.trim().isEmpty()) {
             throw new IllegalArgumentException("Tên nhân viên không được để trống");
@@ -1024,6 +1038,7 @@ public class VideoService implements IVideoService {
                 .staffName(trimmedStaffName)
                 .startDate(now)
                 .endDate(endDate)
+                .maxOrdersPerDay(maxOrdersPerDay)
                 .isActive(true)
                 .createdBy(currentUser)
                 .createdAt(now)
@@ -1098,6 +1113,7 @@ public class VideoService implements IVideoService {
                     limitInfo.put("staffName", limit.getStaffName());
                     limitInfo.put("startDate", limit.getStartDate());
                     limitInfo.put("endDate", limit.getEndDate());
+                    limitInfo.put("maxOrdersPerDay", limit.getMaxOrdersPerDay());
                     limitInfo.put("remainingDays", limit.getRemainingDays());
                     limitInfo.put("createdBy", limit.getCreatedBy());
                     limitInfo.put("createdAt", limit.getCreatedAt());
@@ -1135,16 +1151,20 @@ public class VideoService implements IVideoService {
             return false;
         }
         
-        // Nếu bị giới hạn, check quota hằng ngày (max 3 đơn/ngày)
+        // Nếu bị giới hạn, check quota hằng ngày
         LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = now.toLocalDate().atTime(23, 59, 59);
         
+        // Lấy thông tin limit để biết maxOrdersPerDay
+        Optional<StaffLimit> activeLimit = staffLimitRepository.findByStaffNameAndIsActiveTrueAndEndDateAfter(trimmedStaffName, now);
+        int maxOrdersPerDay = activeLimit.map(StaffLimit::getMaxOrdersPerDay).orElse(3);
+        
         long todayAssignedCount = videoRepository.countVideosByStaffAssignedToday(trimmedStaffName, startOfDay, endOfDay);
         
-        boolean hasReachedDailyQuota = todayAssignedCount >= 3;
+        boolean hasReachedDailyQuota = todayAssignedCount >= maxOrdersPerDay;
         
-        log.debug("Staff '{}' daily quota check - Today assigned: {}/3, Quota reached: {}", 
-                trimmedStaffName, todayAssignedCount, hasReachedDailyQuota);
+        log.debug("Staff '{}' daily quota check - Today assigned: {}/{}, Quota reached: {}", 
+                trimmedStaffName, todayAssignedCount, maxOrdersPerDay, hasReachedDailyQuota);
         
         return hasReachedDailyQuota;
     }
@@ -1186,8 +1206,11 @@ public class VideoService implements IVideoService {
             LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
             LocalDateTime endOfDay = now.toLocalDate().atTime(23, 59, 59);
             
+            // Lấy thông tin limit để biết maxOrdersPerDay
+            Optional<StaffLimit> activeLimit = staffLimitRepository.findByStaffNameAndIsActiveTrueAndEndDateAfter(trimmedStaffName, now);
+            long maxQuota = activeLimit.map(limit -> limit.getMaxOrdersPerDay().longValue()).orElse(3L);
+            
             long todayAssignedCount = videoRepository.countVideosByStaffAssignedToday(trimmedStaffName, startOfDay, endOfDay);
-            long maxQuota = 3;
             long remainingQuota = Math.max(0, maxQuota - todayAssignedCount);
             boolean hasReachedDailyQuota = todayAssignedCount >= maxQuota;
             

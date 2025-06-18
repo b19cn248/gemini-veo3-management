@@ -75,6 +75,14 @@ public class StaffLimit {
     private Boolean isActive = true;
 
     /**
+     * Số đơn tối đa có thể nhận trong một ngày
+     * Giá trị mặc định là 3
+     */
+    @Column(name = "max_orders_per_day", nullable = false)
+    @Builder.Default
+    private Integer maxOrdersPerDay = 3;
+
+    /**
      * Check xem limit có còn hiệu lực không
      * 
      * @return true nếu limit đang active và chưa hết hạn

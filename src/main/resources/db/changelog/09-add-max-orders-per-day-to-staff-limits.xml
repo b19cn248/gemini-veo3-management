@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="09-add-max-orders-per-day-to-staff-limits" author="system">
+        <comment>Add max_orders_per_day column to staff_limits table to allow configurable daily order limits</comment>
+        
+        <addColumn tableName="staff_limits">
+            <column name="max_orders_per_day" type="INT" defaultValueNumeric="3">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        
+        <rollback>
+            <dropColumn tableName="staff_limits" columnName="max_orders_per_day"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

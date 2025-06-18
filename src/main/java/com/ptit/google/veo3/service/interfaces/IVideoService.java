@@ -72,6 +72,7 @@ public interface IVideoService {
     
     // Staff limit operations
     void setStaffLimit(String staffName, Integer lockDays);
+    void setStaffLimit(String staffName, Integer lockDays, Integer maxOrdersPerDay);
     void removeStaffLimit(String staffName);
     List<Map<String, Object>> getActiveStaffLimits();
     boolean isStaffLimited(String staffName);

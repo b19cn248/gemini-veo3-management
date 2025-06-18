@@ -1274,6 +1274,7 @@ public class VideoController {
      * 
      * @param staffName Tên nhân viên cần giới hạn (required)
      * @param lockDays Số ngày khóa (required, max 30 ngày)
+     * @param maxOrdersPerDay Số đơn tối đa có thể nhận trong một ngày (optional, default 3, min 1, max 50)
      * @return ResponseEntity chứa thông tin giới hạn đã tạo
      * - 200 OK: Tạo giới hạn thành công
      * - 400 BAD_REQUEST: Tham số không hợp lệ
@@ -1282,24 +1283,34 @@ public class VideoController {
     @PostMapping("/staff-limit")
     public ResponseEntity<Map<String, Object>> setStaffLimit(
             @RequestParam String staffName,
-            @RequestParam Integer lockDays) {
+            @RequestParam Integer lockDays,
+            @RequestParam(required = false, defaultValue = "3") Integer maxOrdersPerDay
+    ) {
         String tenantId = TenantContext.getTenantId();
-        log.info("[Tenant: {}] Received request to set staff limit - Staff: '{}', Days: {}", tenantId, staffName, lockDays);
+        log.info("[Tenant: {}] Received request to set staff limit - Staff: '{}', Days: {}, Max orders per day: {}", 
+                tenantId, staffName, lockDays, maxOrdersPerDay);
 
         try {
-            videoService.setStaffLimit(staffName, lockDays);
+            // Validate maxOrdersPerDay
+            if (maxOrdersPerDay < 1 || maxOrdersPerDay > 50) {
+                return createErrorResponse("Số đơn tối đa trong ngày phải từ 1 đến 50", HttpStatus.BAD_REQUEST);
+            }
+
+            videoService.setStaffLimit(staffName, lockDays, maxOrdersPerDay);
 
             // Lấy thông tin limit vừa tạo để trả về
             Map<String, Object> limitInfo = new HashMap<>();
             limitInfo.put("staffName", staffName.trim());
             limitInfo.put("lockDays", lockDays);
+            limitInfo.put("maxOrdersPerDay", maxOrdersPerDay);
             limitInfo.put("startDate", LocalDateTime.now());
             limitInfo.put("endDate", LocalDateTime.now().plusDays(lockDays));
             limitInfo.put("remainingDays", lockDays);
             limitInfo.put("createdBy", jwtTokenService.getCurrentUserNameFromJwt());
 
             Map<String, Object> response = createSuccessResponse(
-                    String.format("Đã thiết lập giới hạn cho nhân viên '%s' trong %d ngày", staffName.trim(), lockDays),
+                    String.format("Đã thiết lập giới hạn cho nhân viên '%s' trong %d ngày với tối đa %d đơn/ngày", 
+                            staffName.trim(), lockDays, maxOrdersPerDay),
                     limitInfo
             );
             response.put("tenantId", tenantId);
