@@ -46,6 +46,7 @@ import java.util.Map;
  * - GET    /api/v1/videos                    - Lấy danh sách video (có phân trang)
  * - GET    /api/v1/videos/all                - Lấy tất cả video (không phân trang)
  * - GET    /api/v1/videos/search             - Tìm kiếm video theo tên khách hàng
+ * - GET    /api/v1/videos/search/id          - Tìm kiếm video theo ID
  * - GET    /api/v1/videos/status/{status}    - Lấy video theo trạng thái
  * - PATCH  /api/v1/videos/{id}/assigned-staff - Cập nhật nhân viên được giao (MAX: 3 videos)
  * - PATCH  /api/v1/videos/{id}/status        - Cập nhật trạng thái video (PERMISSION: chỉ assignedStaff)
@@ -537,6 +538,44 @@ public class VideoController {
 
         } catch (Exception e) {
             log.error("[Tenant: {}] Error searching videos by customer name '{}': ", tenantId, customerName, e);
+            return createErrorResponse("Lỗi khi tìm kiếm video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/videos/search/id - Tìm kiếm video theo ID
+     *
+     * @param id - ID của video cần tìm
+     * @return ResponseEntity chứa video tìm được hoặc danh sách rỗng
+     */
+    @GetMapping("/search/id")
+    public ResponseEntity<Map<String, Object>> searchVideoById(
+            @RequestParam Long id
+    ) {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to search video by ID: {}", tenantId, id);
+
+        try {
+            List<VideoResponseDto> videos = videoService.searchById(id);
+
+            Map<String, Object> response = createSuccessResponse(
+                    videos.isEmpty() ? 
+                        String.format("Không tìm thấy video với ID '%d'", id) :
+                        String.format("Tìm thấy video với ID '%d'", id),
+                    videos
+            );
+            response.put("total", videos.size());
+            response.put("searchId", id);
+            response.put("tenantId", tenantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("[Tenant: {}] Invalid ID parameter: {}", tenantId, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error searching video by ID '{}': ", tenantId, id, e);
             return createErrorResponse("Lỗi khi tìm kiếm video: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }

@@ -30,6 +30,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -927,6 +928,35 @@ public class VideoService implements IVideoService {
         
         return exists;
     }
+    
+    /**
+     * Tìm kiếm video theo ID
+     * 
+     * @param id ID của video cần tìm
+     * @return List chứa video nếu tìm thấy (tối đa 1 phần tử), empty list nếu không tìm thấy
+     */
+    public List<VideoResponseDto> searchById(Long id) {
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("ID video không hợp lệ");
+        }
+        
+        log.info("Searching for video by ID: {}", id);
+        
+        List<VideoResponseDto> result = new ArrayList<>();
+        
+        Optional<Video> videoOpt = videoRepository.findById(id);
+        
+        if (videoOpt.isPresent() && !videoOpt.get().getIsDeleted()) {
+            Video video = videoOpt.get();
+            result.add(mapToResponseDto(video));
+            log.info("Found video with ID: {}", id);
+        } else {
+            log.info("No video found with ID: {} or video has been deleted", id);
+        }
+        
+        return result;
+    }
+    
     /**
      * Tính lương sales theo ngày thanh toán - UPDATED với Interface Projection
      * 

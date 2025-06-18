@@ -66,4 +66,7 @@ public interface IVideoService {
     
     // Validation operations
     boolean checkCustomerExists(String customerName);
+    
+    // Search operations
+    List<VideoResponseDto> searchById(Long id);
 }
