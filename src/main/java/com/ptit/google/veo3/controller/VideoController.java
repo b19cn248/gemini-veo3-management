@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +57,10 @@ import java.util.Map;
  * - GET    /api/v1/videos/staff-workload     - Lấy thông tin workload của nhân viên
  * - GET    /api/v1/videos/sales-salaries    - Tính lương sales theo ngày thanh toán (NEW API)
  * - GET    /api/v1/videos/check-customer    - Kiểm tra khách hàng đã tồn tại (NEW API)
+ * - POST   /api/v1/videos/staff-limit       - Thiết lập giới hạn nhân viên (ADMIN ONLY) - Max 3 đơn/ngày
+ * - DELETE /api/v1/videos/staff-limit       - Hủy giới hạn nhân viên (ADMIN ONLY)
+ * - GET    /api/v1/videos/staff-limits      - Lấy danh sách giới hạn đang active
+ * - GET    /api/v1/videos/staff-limit/check - Kiểm tra quota hằng ngày của nhân viên
  */
 @RestController
 @RequestMapping("/api/v1/videos")
@@ -1261,6 +1266,156 @@ public class VideoController {
         } catch (Exception e) {
             log.error("[Tenant: {}] Error checking customer existence for '{}': ", tenantId, customerName, e);
             return createErrorResponse("Lỗi khi kiểm tra khách hàng: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * POST /api/v1/videos/staff-limit - Thiết lập giới hạn cho nhân viên (ADMIN ONLY)
+     * 
+     * @param staffName Tên nhân viên cần giới hạn (required)
+     * @param lockDays Số ngày khóa (required, max 30 ngày)
+     * @return ResponseEntity chứa thông tin giới hạn đã tạo
+     * - 200 OK: Tạo giới hạn thành công
+     * - 400 BAD_REQUEST: Tham số không hợp lệ
+     * - 403 FORBIDDEN: Không phải admin
+     */
+    @PostMapping("/staff-limit")
+    public ResponseEntity<Map<String, Object>> setStaffLimit(
+            @RequestParam String staffName,
+            @RequestParam Integer lockDays) {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to set staff limit - Staff: '{}', Days: {}", tenantId, staffName, lockDays);
+
+        try {
+            videoService.setStaffLimit(staffName, lockDays);
+
+            // Lấy thông tin limit vừa tạo để trả về
+            Map<String, Object> limitInfo = new HashMap<>();
+            limitInfo.put("staffName", staffName.trim());
+            limitInfo.put("lockDays", lockDays);
+            limitInfo.put("startDate", LocalDateTime.now());
+            limitInfo.put("endDate", LocalDateTime.now().plusDays(lockDays));
+            limitInfo.put("remainingDays", lockDays);
+            limitInfo.put("createdBy", jwtTokenService.getCurrentUserNameFromJwt());
+
+            Map<String, Object> response = createSuccessResponse(
+                    String.format("Đã thiết lập giới hạn cho nhân viên '%s' trong %d ngày", staffName.trim(), lockDays),
+                    limitInfo
+            );
+            response.put("tenantId", tenantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("[Tenant: {}] Invalid parameters for staff limit: {}", tenantId, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (SecurityException e) {
+            log.warn("[Tenant: {}] Access denied for staff limit creation: {}", tenantId, e.getMessage());
+            return createErrorResponse("Chỉ admin mới có quyền thiết lập giới hạn nhân viên", HttpStatus.FORBIDDEN);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error setting staff limit for '{}': ", tenantId, staffName, e);
+            return createErrorResponse("Lỗi khi thiết lập giới hạn nhân viên: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * DELETE /api/v1/videos/staff-limit - Hủy giới hạn nhân viên (ADMIN ONLY)
+     * 
+     * @param staffName Tên nhân viên cần hủy giới hạn (required)
+     * @return ResponseEntity chứa kết quả hủy giới hạn
+     * - 200 OK: Hủy giới hạn thành công
+     * - 400 BAD_REQUEST: Nhân viên không có giới hạn
+     * - 403 FORBIDDEN: Không phải admin
+     */
+    @DeleteMapping("/staff-limit")
+    public ResponseEntity<Map<String, Object>> removeStaffLimit(
+            @RequestParam String staffName) {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to remove staff limit for: '{}'", tenantId, staffName);
+
+        try {
+            videoService.removeStaffLimit(staffName);
+
+            Map<String, Object> response = createSuccessResponse(
+                    String.format("Đã hủy giới hạn cho nhân viên '%s'", staffName.trim()),
+                    Map.of("staffName", staffName.trim(), "action", "LIMIT_REMOVED")
+            );
+            response.put("tenantId", tenantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("[Tenant: {}] Cannot remove staff limit: {}", tenantId, e.getMessage());
+            return createErrorResponse(e.getMessage(), HttpStatus.BAD_REQUEST);
+
+        } catch (SecurityException e) {
+            log.warn("[Tenant: {}] Access denied for staff limit removal: {}", tenantId, e.getMessage());
+            return createErrorResponse("Chỉ admin mới có quyền hủy giới hạn nhân viên", HttpStatus.FORBIDDEN);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error removing staff limit for '{}': ", tenantId, staffName, e);
+            return createErrorResponse("Lỗi khi hủy giới hạn nhân viên: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/videos/staff-limits - Lấy danh sách giới hạn nhân viên đang active
+     * 
+     * @return ResponseEntity chứa danh sách tất cả giới hạn đang có hiệu lực
+     * - 200 OK: Lấy danh sách thành công
+     */
+    @GetMapping("/staff-limits")
+    public ResponseEntity<Map<String, Object>> getActiveStaffLimits() {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get active staff limits", tenantId);
+
+        try {
+            List<Map<String, Object>> activeLimits = videoService.getActiveStaffLimits();
+
+            Map<String, Object> response = createSuccessResponse(
+                    String.format("Lấy danh sách giới hạn nhân viên thành công - %d giới hạn đang có hiệu lực", activeLimits.size()),
+                    activeLimits
+            );
+            response.put("total", activeLimits.size());
+            response.put("tenantId", tenantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error getting active staff limits: ", tenantId, e);
+            return createErrorResponse("Lỗi khi lấy danh sách giới hạn nhân viên: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * GET /api/v1/videos/staff-limit/check - Kiểm tra quota và trạng thái giới hạn nhân viên
+     * 
+     * @param staffName Tên nhân viên cần kiểm tra (required)
+     * @return ResponseEntity chứa thông tin chi tiết về quota và trạng thái giới hạn
+     * - 200 OK: Kiểm tra thành công
+     */
+    @GetMapping("/staff-limit/check")
+    public ResponseEntity<Map<String, Object>> checkStaffLimit(
+            @RequestParam String staffName) {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to check staff quota for: '{}'", tenantId, staffName);
+
+        try {
+            Map<String, Object> quotaInfo = videoService.getStaffQuotaInfo(staffName);
+
+            Map<String, Object> response = createSuccessResponse(
+                    (String) quotaInfo.get("message"),
+                    quotaInfo
+            );
+            response.put("tenantId", tenantId);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error checking staff quota for '{}': ", tenantId, staffName, e);
+            return createErrorResponse("Lỗi khi kiểm tra quota nhân viên: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }

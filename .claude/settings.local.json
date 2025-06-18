@@ -10,7 +10,8 @@
       "Bash(find:*)",
       "Bash(export:*)",
       "Bash(rm:*)",
-      "Bash(java:*)"
+      "Bash(java:*)",
+      "Bash(true)"
     ],
     "deny": []
   }

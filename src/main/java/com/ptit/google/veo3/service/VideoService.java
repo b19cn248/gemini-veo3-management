@@ -8,8 +8,10 @@ import com.ptit.google.veo3.dto.SalesSalaryProjection;
 import com.ptit.google.veo3.entity.AuditAction;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
+import com.ptit.google.veo3.entity.StaffLimit;
 import com.ptit.google.veo3.entity.Video;
 import com.ptit.google.veo3.entity.VideoStatus;
+import com.ptit.google.veo3.repository.StaffLimitRepository;
 import com.ptit.google.veo3.repository.VideoRepository;
 import com.ptit.google.veo3.service.interfaces.IVideoService;
 import com.ptit.google.veo3.service.interfaces.IJwtTokenService;
@@ -47,6 +49,7 @@ import java.util.Optional;
 public class VideoService implements IVideoService {
 
     private final VideoRepository videoRepository;
+    private final StaffLimitRepository staffLimitRepository;
     private final IJwtTokenService jwtTokenService;
     private final IStaffWorkloadService staffWorkloadService;
     private final IAuditService auditService;
@@ -184,20 +187,28 @@ public class VideoService implements IVideoService {
         // NEW WORKLOAD VALIDATION LOGIC
         // Kiểm tra workload tổng thể thay vì từng trạng thái riêng lẻ
         if (assignedStaff != null && !assignedStaff.trim().isEmpty()) {
+            String trimmedStaffName = assignedStaff.trim();
+            
+            // CHECK STAFF DAILY QUOTA FOR LIMITED STAFF
+            if (isStaffLimited(trimmedStaffName)) {
+                log.warn("Cannot assign video ID {} to staff '{}': Staff has reached daily quota (3 orders/day)", id, trimmedStaffName);
+                throw new IllegalArgumentException(String.format("Nhân viên '%s' đã đạt quota tối đa 3 đơn/ngày (nhân viên bị giới hạn)", trimmedStaffName));
+            }
+            
             try {
-                staffWorkloadService.validateCanAcceptNewTask(assignedStaff.trim());
+                staffWorkloadService.validateCanAcceptNewTask(trimmedStaffName);
                 
                 // Log workload info để monitoring
                 WorkloadInfo workloadInfo = 
-                        staffWorkloadService.getWorkloadInfo(assignedStaff.trim());
+                        staffWorkloadService.getWorkloadInfo(trimmedStaffName);
                 log.info("Staff '{}' workload before assignment: {} active videos (DANG_LAM: {}, DANG_SUA: {}, CAN_SUA_GAP: {})",
-                        assignedStaff.trim(), workloadInfo.getTotalActive(), 
+                        trimmedStaffName, workloadInfo.getTotalActive(), 
                         workloadInfo.getDangLamCount(), workloadInfo.getDangSuaCount(), 
                         workloadInfo.getCanSuaGapCount());
                         
             } catch (IllegalArgumentException e) {
                 // Re-throw với context thêm về video đang cố gắng assign
-                log.warn("Cannot assign video ID {} to staff '{}': {}", id, assignedStaff.trim(), e.getMessage());
+                log.warn("Cannot assign video ID {} to staff '{}': {}", id, trimmedStaffName, e.getMessage());
                 throw new IllegalArgumentException(e.getMessage());
             }
         }
@@ -955,6 +966,249 @@ public class VideoService implements IVideoService {
         }
         
         return result;
+    }
+    
+    /**
+     * Thiết lập giới hạn cho nhân viên trong số ngày nhất định
+     * 
+     * @param staffName Tên nhân viên cần giới hạn
+     * @param lockDays Số ngày giới hạn (từ hiện tại)
+     * @throws IllegalArgumentException nếu tham số không hợp lệ
+     * @throws SecurityException nếu không phải admin
+     */
+    @Transactional
+    public void setStaffLimit(String staffName, Integer lockDays) {
+        // Validate input parameters
+        if (staffName == null || staffName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên nhân viên không được để trống");
+        }
+        
+        if (lockDays == null || lockDays <= 0) {
+            throw new IllegalArgumentException("Số ngày khóa phải lớn hơn 0");
+        }
+        
+        if (lockDays > 30) {
+            throw new IllegalArgumentException("Số ngày khóa không được vượt quá 30 ngày");
+        }
+        
+        String trimmedStaffName = staffName.trim();
+        
+        // Check xem nhân viên có tồn tại trong hệ thống không
+        boolean staffExists = videoRepository.existsByAssignedStaff(trimmedStaffName);
+        if (!staffExists) {
+            throw new IllegalArgumentException(String.format("Nhân viên '%s' chưa từng được giao video nào", trimmedStaffName));
+        }
+        
+        log.info("Creating staff limit for '{}' - {} days", trimmedStaffName, lockDays);
+        
+        // Check if staff already has active limit
+        Optional<StaffLimit> existingActiveLimit = staffLimitRepository.findByStaffNameAndIsActiveTrue(trimmedStaffName);
+        if (existingActiveLimit.isPresent()) {
+            log.info("Staff '{}' already has active limit ID: {}, deactivating it first", 
+                    trimmedStaffName, existingActiveLimit.get().getId());
+            
+            // Deactivate existing limits cho nhân viên này
+            int deactivatedCount = staffLimitRepository.deactivateAllLimitsByStaffName(trimmedStaffName);
+            if (deactivatedCount > 0) {
+                log.info("Deactivated {} existing limits for staff '{}'", deactivatedCount, trimmedStaffName);
+            }
+        }
+        
+        // Tạo limit mới
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime endDate = now.plusDays(lockDays);
+        
+        String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
+        
+        StaffLimit newLimit = StaffLimit.builder()
+                .staffName(trimmedStaffName)
+                .startDate(now)
+                .endDate(endDate)
+                .isActive(true)
+                .createdBy(currentUser)
+                .createdAt(now)
+                .build();
+        
+        StaffLimit savedLimit = staffLimitRepository.save(newLimit);
+        
+        // Log staff limit creation for audit (manual logging since StaffLimit doesn't extend BaseEntity)
+        log.info("AUDIT: Staff limit created - ID: {}, Staff: '{}', Days: {}, CreatedBy: {}", 
+                savedLimit.getId(), trimmedStaffName, lockDays, currentUser);
+        
+        log.info("Staff limit created successfully - ID: {}, Staff: '{}', End date: {}", 
+                savedLimit.getId(), trimmedStaffName, endDate);
+    }
+    
+    /**
+     * Hủy giới hạn của nhân viên
+     * 
+     * @param staffName Tên nhân viên cần hủy giới hạn
+     * @throws IllegalArgumentException nếu tên nhân viên không hợp lệ
+     * @throws SecurityException nếu không phải admin
+     */
+    @Transactional
+    public void removeStaffLimit(String staffName) {
+        if (staffName == null || staffName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Tên nhân viên không được để trống");
+        }
+        
+        String trimmedStaffName = staffName.trim();
+        
+        log.info("Removing staff limit for '{}'", trimmedStaffName);
+        
+        // Tìm limit đang active
+        Optional<StaffLimit> existingLimitOpt = staffLimitRepository.findByStaffNameAndIsActiveTrue(trimmedStaffName);
+        
+        if (existingLimitOpt.isEmpty()) {
+            throw new IllegalArgumentException(String.format("Nhân viên '%s' hiện không có giới hạn nào", trimmedStaffName));
+        }
+        
+        StaffLimit existingLimit = existingLimitOpt.get();
+        
+        // Deactivate limit using @Modifying query to avoid unique constraint issues
+        int updatedRows = staffLimitRepository.deactivateAllLimitsByStaffName(trimmedStaffName);
+        
+        if (updatedRows == 0) {
+            throw new IllegalArgumentException(String.format("Không thể hủy giới hạn cho nhân viên '%s'", trimmedStaffName));
+        }
+        
+        // Log staff limit deletion for audit (manual logging since StaffLimit doesn't extend BaseEntity)
+        String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
+        log.info("AUDIT: Staff limit deleted - ID: {}, Staff: '{}', DeletedBy: {}", 
+                existingLimit.getId(), trimmedStaffName, currentUser);
+        
+        log.info("Staff limit removed successfully for '{}' - Limit ID: {}", trimmedStaffName, existingLimit.getId());
+    }
+    
+    /**
+     * Lấy danh sách tất cả giới hạn đang active
+     * 
+     * @return List chứa thông tin các giới hạn đang có hiệu lực
+     */
+    public List<Map<String, Object>> getActiveStaffLimits() {
+        log.info("Fetching all active staff limits");
+        
+        LocalDateTime now = LocalDateTime.now();
+        List<StaffLimit> activeLimits = staffLimitRepository.findActiveLimitsNotExpired(now);
+        
+        List<Map<String, Object>> result = activeLimits.stream()
+                .map(limit -> {
+                    Map<String, Object> limitInfo = new HashMap<>();
+                    limitInfo.put("id", limit.getId());
+                    limitInfo.put("staffName", limit.getStaffName());
+                    limitInfo.put("startDate", limit.getStartDate());
+                    limitInfo.put("endDate", limit.getEndDate());
+                    limitInfo.put("remainingDays", limit.getRemainingDays());
+                    limitInfo.put("createdBy", limit.getCreatedBy());
+                    limitInfo.put("createdAt", limit.getCreatedAt());
+                    limitInfo.put("isCurrentlyActive", limit.isCurrentlyActive());
+                    return limitInfo;
+                })
+                .toList();
+        
+        log.info("Found {} active staff limits", result.size());
+        return result;
+    }
+    
+    /**
+     * Check xem nhân viên có vượt quá quota hằng ngày không (cho nhân viên bị giới hạn)
+     * 
+     * Logic mới: Nhân viên bị giới hạn chỉ được nhận tối đa 3 đơn/ngày
+     * 
+     * @param staffName Tên nhân viên cần check
+     * @return true nếu nhân viên đã đạt quota tối đa trong ngày (3 đơn)
+     */
+    public boolean isStaffLimited(String staffName) {
+        if (staffName == null || staffName.trim().isEmpty()) {
+            return false;
+        }
+        
+        String trimmedStaffName = staffName.trim();
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Check xem nhân viên có trong danh sách bị giới hạn không
+        boolean hasActiveLimit = staffLimitRepository.existsByStaffNameAndIsActiveTrueAndEndDateAfter(trimmedStaffName, now);
+        
+        if (!hasActiveLimit) {
+            // Không bị giới hạn -> có thể nhận đơn bình thường
+            log.debug("Staff '{}' is not in limited list", trimmedStaffName);
+            return false;
+        }
+        
+        // Nếu bị giới hạn, check quota hằng ngày (max 3 đơn/ngày)
+        LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
+        LocalDateTime endOfDay = now.toLocalDate().atTime(23, 59, 59);
+        
+        long todayAssignedCount = videoRepository.countVideosByStaffAssignedToday(trimmedStaffName, startOfDay, endOfDay);
+        
+        boolean hasReachedDailyQuota = todayAssignedCount >= 3;
+        
+        log.debug("Staff '{}' daily quota check - Today assigned: {}/3, Quota reached: {}", 
+                trimmedStaffName, todayAssignedCount, hasReachedDailyQuota);
+        
+        return hasReachedDailyQuota;
+    }
+    
+    /**
+     * Lấy thông tin chi tiết về quota của nhân viên
+     * 
+     * @param staffName Tên nhân viên cần check
+     * @return Map chứa thông tin chi tiết về quota và trạng thái giới hạn
+     */
+    public Map<String, Object> getStaffQuotaInfo(String staffName) {
+        Map<String, Object> quotaInfo = new HashMap<>();
+        
+        if (staffName == null || staffName.trim().isEmpty()) {
+            quotaInfo.put("staffName", staffName);
+            quotaInfo.put("isLimited", false);
+            quotaInfo.put("canReceiveNewOrders", true);
+            quotaInfo.put("quotaType", "UNLIMITED");
+            return quotaInfo;
+        }
+        
+        String trimmedStaffName = staffName.trim();
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Check xem có trong danh sách bị giới hạn không
+        boolean hasActiveLimit = staffLimitRepository.existsByStaffNameAndIsActiveTrueAndEndDateAfter(trimmedStaffName, now);
+        
+        quotaInfo.put("staffName", trimmedStaffName);
+        quotaInfo.put("hasActiveLimit", hasActiveLimit);
+        
+        if (!hasActiveLimit) {
+            // Không bị giới hạn
+            quotaInfo.put("isLimited", false);
+            quotaInfo.put("canReceiveNewOrders", true);
+            quotaInfo.put("quotaType", "UNLIMITED");
+            quotaInfo.put("message", "Nhân viên không bị giới hạn");
+        } else {
+            // Bị giới hạn - check quota hằng ngày
+            LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
+            LocalDateTime endOfDay = now.toLocalDate().atTime(23, 59, 59);
+            
+            long todayAssignedCount = videoRepository.countVideosByStaffAssignedToday(trimmedStaffName, startOfDay, endOfDay);
+            long maxQuota = 3;
+            long remainingQuota = Math.max(0, maxQuota - todayAssignedCount);
+            boolean hasReachedDailyQuota = todayAssignedCount >= maxQuota;
+            
+            quotaInfo.put("isLimited", hasReachedDailyQuota);
+            quotaInfo.put("canReceiveNewOrders", !hasReachedDailyQuota);
+            quotaInfo.put("quotaType", "DAILY_LIMITED");
+            quotaInfo.put("dailyQuota", Map.of(
+                "maxPerDay", maxQuota,
+                "assignedToday", todayAssignedCount,
+                "remainingToday", remainingQuota,
+                "quotaReached", hasReachedDailyQuota
+            ));
+            
+            if (hasReachedDailyQuota) {
+                quotaInfo.put("message", String.format("Nhân viên đã đạt quota tối đa %d đơn/ngày", maxQuota));
+            } else {
+                quotaInfo.put("message", String.format("Nhân viên còn lại %d/%d đơn trong ngày hôm nay", remainingQuota, maxQuota));
+            }
+        }
+        
+        return quotaInfo;
     }
     
     /**

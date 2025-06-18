@@ -245,4 +245,26 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
             """, nativeQuery = true)
     List<Object[]> calculateSalesSalariesNativeByDate(@Param("targetDate") LocalDate targetDate);
 
+    /**
+     * Check xem có nhân viên nào đã từng được assign video không
+     * Dùng để validate khi tạo staff limit
+     */
+    boolean existsByAssignedStaff(String assignedStaff);
+
+    /**
+     * Đếm số video được assign cho nhân viên trong ngày hiện tại
+     * Dùng để kiểm tra quota hằng ngày cho nhân viên bị giới hạn
+     * 
+     * @param assignedStaff Tên nhân viên
+     * @param startOfDay Thời điểm bắt đầu ngày (00:00:00)
+     * @param endOfDay Thời điểm kết thúc ngày (23:59:59)
+     * @return Số lượng video được assign trong ngày
+     */
+    @Query("SELECT COUNT(v) FROM Video v WHERE v.assignedStaff = :assignedStaff " +
+           "AND v.assignedAt >= :startOfDay AND v.assignedAt <= :endOfDay " +
+           "AND v.isDeleted = false")
+    long countVideosByStaffAssignedToday(@Param("assignedStaff") String assignedStaff,
+                                        @Param("startOfDay") LocalDateTime startOfDay,
+                                        @Param("endOfDay") LocalDateTime endOfDay);
+
 }

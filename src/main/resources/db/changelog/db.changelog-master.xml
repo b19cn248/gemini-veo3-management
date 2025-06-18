@@ -38,4 +38,10 @@
     <!-- Version 1.7: Notifications feature - Tạo hệ thống quản lý notifications -->
     <include file="db/changelog/06-create-notifications-table.xml" relativeToChangelogFile="false"/>
 
+    <!-- Version 1.8: Staff Limits feature - Tạo hệ thống giới hạn nhân viên -->
+    <include file="db/changelog/07-create-staff-limits-table.xml" relativeToChangelogFile="false"/>
+
+    <!-- Version 1.8.1: Fix Staff Limits unique constraint -->
+    <include file="db/changelog/08-fix-staff-limits-unique-constraint.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

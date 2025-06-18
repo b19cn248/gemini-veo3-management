@@ -69,4 +69,11 @@ public interface IVideoService {
     
     // Search operations
     List<VideoResponseDto> searchById(Long id);
+    
+    // Staff limit operations
+    void setStaffLimit(String staffName, Integer lockDays);
+    void removeStaffLimit(String staffName);
+    List<Map<String, Object>> getActiveStaffLimits();
+    boolean isStaffLimited(String staffName);
+    Map<String, Object> getStaffQuotaInfo(String staffName);
 }

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="07-create-staff-limits-table" author="claude-code">
+        <comment>Tạo bảng staff_limits để lưu thông tin giới hạn số đơn nhân viên có thể nhận</comment>
+        
+        <createTable tableName="staff_limits">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            
+            <column name="staff_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="start_date" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="end_date" type="DATETIME">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="created_by" type="VARCHAR(255)">
+                <constraints nullable="true"/>
+            </column>
+            
+            <column name="created_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Tạo unique constraint để đảm bảo mỗi nhân viên chỉ có một limit active tại một thời điểm -->
+        <addUniqueConstraint 
+            tableName="staff_limits" 
+            columnNames="staff_name, is_active" 
+            constraintName="uk_staff_limits_name_active"/>
+
+        <!-- Tạo index cho việc query theo staff_name -->
+        <createIndex tableName="staff_limits" indexName="idx_staff_limits_staff_name">
+            <column name="staff_name"/>
+        </createIndex>
+
+        <!-- Tạo index cho việc query theo is_active và end_date -->
+        <createIndex tableName="staff_limits" indexName="idx_staff_limits_active_end_date">
+            <column name="is_active"/>
+            <column name="end_date"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
