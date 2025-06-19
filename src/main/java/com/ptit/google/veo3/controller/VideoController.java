@@ -414,7 +414,7 @@ public class VideoController {
      * @return ResponseEntity chứa danh sách video đã được lọc
      */
     @GetMapping("/filter")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> filterVideos(
+    public ResponseEntity<ApiResponse<List<VideoResponseDto>>> filterVideos(
             @RequestParam(required = false) String assignedStaff,
             @RequestParam(required = false) String deliveryStatus,
             @RequestParam(required = false) String paymentStatus) {
@@ -423,29 +423,8 @@ public class VideoController {
         log.info("[Tenant: {}] Received request to filter videos - staff: {}, delivery status: {}, payment status: {}",
                 tenantId, assignedStaff, deliveryStatus, paymentStatus);
 
-        try {
-            List<VideoResponseDto> videos = videoService.filterVideos(assignedStaff, deliveryStatus, paymentStatus);
-
-            Map<String, Object> responseData = Map.of(
-                    "videos", videos,
-                    "total", videos.size(),
-                    "filters", Map.of(
-                            "assignedStaff", assignedStaff,
-                            "deliveryStatus", deliveryStatus,
-                            "paymentStatus", paymentStatus
-                    )
-            );
-
-            return ResponseUtil.ok("Lọc video thành công", responseData);
-
-        } catch (IllegalArgumentException e) {
-            log.warn("[Tenant: {}] Invalid filter parameters: {}", tenantId, e.getMessage());
-            return ResponseUtil.badRequest(e.getMessage());
-
-        } catch (Exception e) {
-            log.error("[Tenant: {}] Error filtering videos: ", tenantId, e);
-            return ResponseUtil.internalServerError("Lỗi khi lọc video: " + e.getMessage());
-        }
+        List<VideoResponseDto> videos = videoService.filterVideos(assignedStaff, deliveryStatus, paymentStatus);
+        return ResponseUtil.ok("Lọc video thành công", videos);
     }
 
     /**
@@ -522,34 +501,23 @@ public class VideoController {
      * @return ResponseEntity chứa danh sách tên nhân viên
      */
     @GetMapping("/assigned-staff")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getDistinctAssignedStaff() {
+    public ResponseEntity<ApiResponse<List<String>>> getDistinctAssignedStaff() {
         String tenantId = TenantContext.getTenantId();
         log.info("[Tenant: {}] Received request to get distinct assigned staff names", tenantId);
 
-        try {
-            List<String> staffList = videoService.getDistinctAssignedStaff();
+        List<String> staffList = videoService.getDistinctAssignedStaff();
 
-            List<String> staffNames = new ArrayList<>();
+        List<String> staffNames = new ArrayList<>();
 
-            for (String staff : staffList) {
-                if (staff.isBlank()) {
-                    staffNames.add("Chưa ai nhận");
-                } else {
-                    staffNames.add(staff);
-                }
+        for (String staff : staffList) {
+            if (staff.isBlank()) {
+                staffNames.add("Chưa ai nhận");
+            } else {
+                staffNames.add(staff);
             }
-
-            Map<String, Object> responseData = Map.of(
-                    "staffNames", staffNames,
-                    "total", staffNames.size()
-            );
-
-            return ResponseUtil.ok("Lấy danh sách nhân viên thành công", responseData);
-
-        } catch (Exception e) {
-            log.error("[Tenant: {}] Error getting distinct assigned staff: ", tenantId, e);
-            return ResponseUtil.internalServerError("Lỗi khi lấy danh sách nhân viên: " + e.getMessage());
         }
+
+        return ResponseUtil.ok("Lấy danh sách nhân viên thành công", staffNames);
     }
 
     /**
@@ -559,24 +527,12 @@ public class VideoController {
      * @return ResponseEntity chứa danh sách tên người tạo video
      */
     @GetMapping("/creators")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getDistinctCreatedBy() {
+    public ResponseEntity<ApiResponse<List<String>>> getDistinctCreatedBy() {
         String tenantId = TenantContext.getTenantId();
         log.info("[Tenant: {}] Received request to get distinct video creators", tenantId);
 
-        try {
-            List<String> creatorList = videoService.getDistinctCreatedBy();
-
-            Map<String, Object> responseData = Map.of(
-                    "creators", creatorList,
-                    "total", creatorList.size()
-            );
-
-            return ResponseUtil.ok("Lấy danh sách người tạo video thành công", responseData);
-
-        } catch (Exception e) {
-            log.error("[Tenant: {}] Error getting distinct video creators: ", tenantId, e);
-            return ResponseUtil.internalServerError("Lỗi khi lấy danh sách người tạo video: " + e.getMessage());
-        }
+        List<String> creatorList = videoService.getDistinctCreatedBy();
+        return ResponseUtil.ok("Lấy danh sách người tạo video thành công", creatorList);
     }
 
     /**
