@@ -10,6 +10,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * Service class để xử lý JWT token và extract thông tin người dùng
  * 
@@ -197,6 +200,74 @@ public class JwtTokenService implements IJwtTokenService {
             return false;
         }
     }
+    /**
+     * Kiểm tra xem người dùng hiện tại có role cụ thể trong resource_access
+     * 
+     * @param clientId ID của client trong resource_access (ví dụ: "video-veo3-be")
+     * @param role Role cần kiểm tra (ví dụ: "admin")
+     * @return true nếu người dùng có role trong client đó, false nếu không
+     */
+    public boolean hasResourceRole(String clientId, String role) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            
+            if (authentication == null || !(authentication instanceof JwtAuthenticationToken jwtAuthToken)) {
+                log.warn("No valid JWT authentication found");
+                return false;
+            }
+            
+            Jwt jwt = jwtAuthToken.getToken();
+            if (jwt == null) {
+                log.warn("JWT token is null");
+                return false;
+            }
+            
+            // Lấy resource_access từ JWT
+            Object resourceAccessObj = jwt.getClaim("resource_access");
+            if (!(resourceAccessObj instanceof Map<?, ?> resourceAccess)) {
+                log.debug("No resource_access claim found in JWT");
+                return false;
+            }
+            
+            // Lấy thông tin client cụ thể
+            Object clientObj = resourceAccess.get(clientId);
+            if (!(clientObj instanceof Map<?, ?> clientAccess)) {
+                log.debug("No access found for client: {}", clientId);
+                return false;
+            }
+            
+            // Lấy roles của client
+            Object rolesObj = clientAccess.get("roles");
+            if (!(rolesObj instanceof List<?> rolesList)) {
+                log.debug("No roles found for client: {}", clientId);
+                return false;
+            }
+            
+            // Kiểm tra role
+            boolean hasRole = rolesList.stream()
+                    .map(Object::toString)
+                    .anyMatch(r -> r.equalsIgnoreCase(role));
+            
+            log.debug("Resource role check - Client: '{}', Role: '{}', Has role: {}", 
+                    clientId, role, hasRole);
+                    
+            return hasRole;
+            
+        } catch (Exception e) {
+            log.error("Error checking resource role: ", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Kiểm tra xem người dùng hiện tại có role admin trong video-veo3-be
+     * 
+     * @return true nếu có role admin trong video-veo3-be, false nếu không
+     */
+    public boolean isVideoVeo3BeAdmin() {
+        return hasResourceRole("video-veo3-be", "admin");
+    }
+    
     public boolean hasPermissionToUpdateVideo(String assignedStaff) {
         try {
             String currentUserName = getCurrentUserNameFromJwt();

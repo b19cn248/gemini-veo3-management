@@ -27,6 +27,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -571,6 +572,7 @@ public class VideoController {
      * @return ResponseEntity chứa danh sách lương sales theo ngày
      */
     @GetMapping("/sales-salaries")
+    @PreAuthorize("@jwtTokenService.hasResourceRole('video-veo3-be', 'admin')")
     public ResponseEntity<ApiResponse<List<SalesSalaryDto>>> getSalesSalariesByDate(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate currentDate) {
         String tenantId = TenantContext.getTenantId();

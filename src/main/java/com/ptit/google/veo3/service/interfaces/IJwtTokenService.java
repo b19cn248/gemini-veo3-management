@@ -27,6 +27,20 @@ public interface IJwtTokenService {
     boolean isCurrentUserAdmin();
     
     /**
+     * Check if current user has specific role in resource_access
+     * @param clientId Client ID in resource_access (e.g., "video-veo3-be")
+     * @param role Role to check (e.g., "admin")
+     * @return true if user has the role, false otherwise
+     */
+    boolean hasResourceRole(String clientId, String role);
+    
+    /**
+     * Check if current user has admin role in video-veo3-be client
+     * @return true if user is admin in video-veo3-be, false otherwise
+     */
+    boolean isVideoVeo3BeAdmin();
+    
+    /**
      * Check if current user has permission to update video
      * @param assignedStaff Staff assigned to the video
      * @return true if user has permission, false otherwise
