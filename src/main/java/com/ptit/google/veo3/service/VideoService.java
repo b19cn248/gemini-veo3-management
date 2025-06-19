@@ -1340,6 +1340,81 @@ public class VideoService implements IVideoService {
     }
 
     /**
+     * Tính lương sales theo khoảng thời gian cho user hiện tại
+     */
+    public List<SalesSalaryDto> calculateSalesSalariesByDateRangeForCurrentUser(
+            LocalDate startDate, LocalDate endDate, String currentSalesName) {
+        
+        validateDateRange(startDate, endDate);
+        
+        if (currentSalesName == null || currentSalesName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Không thể xác định thông tin sales từ JWT token");
+        }
+        
+        log.info("Calculating personal sales salaries for user '{}' from {} to {}", 
+                currentSalesName, startDate, endDate);
+        
+        // Nếu cùng ngày
+        if (startDate.equals(endDate)) {
+            return calculateSalesSalariesByDateForCurrentUser(startDate, currentSalesName);
+        }
+        
+        List<SalesSalaryDto> salesSalaries;
+        
+        try {
+            List<SalesSalaryProjection> projections = videoRepository
+                    .calculateSalesSalariesProjectionByDateRangeForCurrentUser(startDate, endDate, currentSalesName);
+            
+            salesSalaries = projections.stream()
+                    .map(projection -> convertProjectionToDto(projection, startDate, endDate))
+                    .toList();
+                    
+        } catch (Exception e) {
+            log.warn("Interface projection failed for current user, falling back to native query: {}", e.getMessage());
+            salesSalaries = calculateSalesSalariesByDateRangeForCurrentUserNative(startDate, endDate, currentSalesName);
+        }
+        
+        log.info("Personal sales salary calculation completed for user '{}' - {} records found", 
+                currentSalesName, salesSalaries.size());
+        
+        return salesSalaries;
+    }
+
+    /**
+     * Tính lương sales theo ngày cho user hiện tại
+     */
+    public List<SalesSalaryDto> calculateSalesSalariesByDateForCurrentUser(
+            LocalDate targetDate, String currentSalesName) {
+        
+        if (targetDate == null) {
+            throw new IllegalArgumentException("Target date không được null");
+        }
+        
+        if (currentSalesName == null || currentSalesName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Không thể xác định thông tin sales từ JWT token");
+        }
+        
+        log.info("Calculating personal sales salaries for user '{}' on date: {}", currentSalesName, targetDate);
+        
+        List<SalesSalaryDto> salesSalaries;
+        
+        try {
+            List<SalesSalaryProjection> projections = videoRepository
+                    .calculateSalesSalariesProjectionByDateForCurrentUser(targetDate, currentSalesName);
+            
+            salesSalaries = projections.stream()
+                    .map(projection -> convertProjectionToDto(projection, targetDate))
+                    .toList();
+                    
+        } catch (Exception e) {
+            log.warn("Interface projection failed for current user, falling back to native query: {}", e.getMessage());
+            salesSalaries = calculateSalesSalariesByDateForCurrentUserNative(targetDate, currentSalesName);
+        }
+        
+        return salesSalaries;
+    }
+
+    /**
      * Validate date range
      */
     private void validateDateRange(LocalDate startDate, LocalDate endDate) {
@@ -1449,6 +1524,46 @@ public class VideoService implements IVideoService {
                         String.format("%s - %s", startDate.format(formatter), endDate.format(formatter)) : null);
                     return dto;
                 })
+                .toList();
+    }
+
+    /**
+     * BACKUP: Method tính lương sales theo date range cho current user sử dụng native query
+     */
+    private List<SalesSalaryDto> calculateSalesSalariesByDateRangeForCurrentUserNative(
+            LocalDate startDate, LocalDate endDate, String currentSalesName) {
+        log.info("Using native query fallback for current user '{}' sales salaries calculation from {} to {}", 
+                currentSalesName, startDate, endDate);
+        
+        List<Object[]> results = videoRepository.calculateSalesSalariesNativeByDateRangeForCurrentUser(
+                startDate, endDate, currentSalesName);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        
+        return results.stream()
+                .map(row -> {
+                    SalesSalaryDto dto = convertNativeResultToDto(row, startDate);
+                    // Update date fields for date range
+                    dto.setSalaryDate(startDate.equals(endDate) ? startDate.format(formatter) : null);
+                    dto.setSalaryDateRange(!startDate.equals(endDate) ? 
+                        String.format("%s - %s", startDate.format(formatter), endDate.format(formatter)) : null);
+                    return dto;
+                })
+                .toList();
+    }
+
+    /**
+     * BACKUP: Method tính lương sales theo ngày cho current user sử dụng native query
+     */
+    private List<SalesSalaryDto> calculateSalesSalariesByDateForCurrentUserNative(
+            LocalDate targetDate, String currentSalesName) {
+        log.info("Using native query fallback for current user '{}' sales salaries calculation: {}", 
+                currentSalesName, targetDate);
+        
+        List<Object[]> results = videoRepository.calculateSalesSalariesNativeByDateForCurrentUser(
+                targetDate, currentSalesName);
+        
+        return results.stream()
+                .map(row -> convertNativeResultToDto(row, targetDate))
                 .toList();
     }
 

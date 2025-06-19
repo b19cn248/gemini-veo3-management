@@ -314,6 +314,124 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     List<Object[]> calculateSalesSalariesNativeByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     /**
+     * Tính lương sales theo khoảng thời gian cho user hiện tại sử dụng interface projection
+     * 
+     * @param startDate Ngày bắt đầu
+     * @param endDate Ngày kết thúc
+     * @param currentSalesName Tên sales hiện tại từ JWT
+     * @return Danh sách projection chứa thông tin lương sales của user hiện tại
+     */
+    @Query("""
+            SELECT 
+                COALESCE(v.createdBy, 'Unknown Sales') as salesName,
+                COUNT(v) as totalPaidVideos,
+                COALESCE(SUM(v.price), 0) as totalSalesValue,
+                CASE 
+                    WHEN LOWER(TRIM(COALESCE(v.createdBy, ''))) IN ('thuong nguyen', 'thuong', 'nguyễn thuỳ hạnh')
+                    THEN COALESCE(SUM(v.price) * 0.12, 0)
+                    ELSE COALESCE(SUM(v.price) * 0.10, 0)
+                END as commissionSalary
+            FROM Video v 
+            WHERE v.isDeleted = false 
+            AND v.paymentStatus = 'DA_THANH_TOAN' 
+            AND DATE(v.paymentDate) >= :startDate 
+            AND DATE(v.paymentDate) <= :endDate 
+            AND v.price IS NOT NULL
+            AND LOWER(TRIM(v.createdBy)) = LOWER(TRIM(:currentSalesName))
+            """)
+    List<SalesSalaryProjection> calculateSalesSalariesProjectionByDateRangeForCurrentUser(
+        @Param("startDate") LocalDate startDate, 
+        @Param("endDate") LocalDate endDate,
+        @Param("currentSalesName") String currentSalesName);
+
+    /**
+     * Tính lương sales theo ngày cho user hiện tại sử dụng interface projection
+     * 
+     * @param targetDate Ngày cần thống kê
+     * @param currentSalesName Tên sales hiện tại từ JWT
+     * @return Danh sách projection chứa thông tin lương sales của user hiện tại
+     */
+    @Query("""
+            SELECT 
+                COALESCE(v.createdBy, 'Unknown Sales') as salesName,
+                COUNT(v) as totalPaidVideos,
+                COALESCE(SUM(v.price), 0) as totalSalesValue,
+                CASE 
+                    WHEN LOWER(TRIM(COALESCE(v.createdBy, ''))) IN ('thuong nguyen', 'thuong', 'nguyễn thuỳ hạnh')
+                    THEN COALESCE(SUM(v.price) * 0.12, 0)
+                    ELSE COALESCE(SUM(v.price) * 0.10, 0)
+                END as commissionSalary
+            FROM Video v 
+            WHERE v.isDeleted = false 
+            AND v.paymentStatus = 'DA_THANH_TOAN' 
+            AND DATE(v.paymentDate) = :targetDate 
+            AND v.price IS NOT NULL
+            AND LOWER(TRIM(v.createdBy)) = LOWER(TRIM(:currentSalesName))
+            """)
+    List<SalesSalaryProjection> calculateSalesSalariesProjectionByDateForCurrentUser(
+        @Param("targetDate") LocalDate targetDate,
+        @Param("currentSalesName") String currentSalesName);
+
+    /**
+     * BACKUP: Native query để tính lương sales theo khoảng thời gian cho user hiện tại
+     * 
+     * @param startDate Ngày bắt đầu
+     * @param endDate Ngày kết thúc
+     * @param currentSalesName Tên sales hiện tại từ JWT
+     * @return Danh sách Object[] chứa: salesName, totalVideos, totalSalesValue, commissionSalary
+     */
+    @Query(value = """
+            SELECT 
+                COALESCE(v.created_by, 'Unknown Sales') as sales_name,
+                COUNT(v.id) as total_paid_videos,
+                COALESCE(SUM(v.price), 0) as total_sales_value,
+                CASE 
+                    WHEN LOWER(TRIM(COALESCE(v.created_by, ''))) IN ('thuong nguyen', 'thuong')
+                    THEN COALESCE(SUM(v.price) * 0.12, 0)
+                    ELSE COALESCE(SUM(v.price) * 0.10, 0)
+                END as commission_salary
+            FROM videos v 
+            WHERE v.is_deleted = false 
+            AND v.payment_status = 'DA_THANH_TOAN' 
+            AND DATE(v.payment_date) >= :startDate 
+            AND DATE(v.payment_date) <= :endDate 
+            AND v.price IS NOT NULL
+            AND LOWER(TRIM(v.created_by)) = LOWER(TRIM(:currentSalesName))
+            """, nativeQuery = true)
+    List<Object[]> calculateSalesSalariesNativeByDateRangeForCurrentUser(
+        @Param("startDate") LocalDate startDate, 
+        @Param("endDate") LocalDate endDate,
+        @Param("currentSalesName") String currentSalesName);
+
+    /**
+     * BACKUP: Native query để tính lương sales theo ngày cho user hiện tại
+     * 
+     * @param targetDate Ngày cần thống kê
+     * @param currentSalesName Tên sales hiện tại từ JWT
+     * @return Danh sách Object[] chứa: salesName, totalVideos, totalSalesValue, commissionSalary
+     */
+    @Query(value = """
+            SELECT 
+                COALESCE(v.created_by, 'Unknown Sales') as sales_name,
+                COUNT(v.id) as total_paid_videos,
+                COALESCE(SUM(v.price), 0) as total_sales_value,
+                CASE 
+                    WHEN LOWER(TRIM(COALESCE(v.created_by, ''))) IN ('thuong nguyen', 'thuong')
+                    THEN COALESCE(SUM(v.price) * 0.12, 0)
+                    ELSE COALESCE(SUM(v.price) * 0.10, 0)
+                END as commission_salary
+            FROM videos v 
+            WHERE v.is_deleted = false 
+            AND v.payment_status = 'DA_THANH_TOAN' 
+            AND DATE(v.payment_date) = :targetDate 
+            AND v.price IS NOT NULL
+            AND LOWER(TRIM(v.created_by)) = LOWER(TRIM(:currentSalesName))
+            """, nativeQuery = true)
+    List<Object[]> calculateSalesSalariesNativeByDateForCurrentUser(
+        @Param("targetDate") LocalDate targetDate,
+        @Param("currentSalesName") String currentSalesName);
+
+    /**
      * Check xem có nhân viên nào đã từng được assign video không
      * Dùng để validate khi tạo staff limit
      */

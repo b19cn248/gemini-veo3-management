@@ -548,31 +548,44 @@ public class VideoController {
     }
 
     /**
-     * GET /api/v1/videos/sales-salaries - Tính lương sales theo khoảng thời gian thanh toán
+     * GET /api/v1/videos/sales-salaries - Tính lương cá nhân của sales hiện tại
      * <p>
      * Business Logic:
      * - Lọc videos có paymentStatus = 'DA_THANH_TOAN'
      * - Lọc theo paymentDate trong khoảng startDate đến endDate
-     * - Group theo createdBy (sales person)
-     * - Tính tổng price per sales
+     * - Chỉ hiển thị lương của sales hiện tại (từ JWT token)
+     * - Lọc theo createdBy = currentUserName
      * - Hoa hồng = tổng price * 10% hoặc 12% (tùy sales)
      *
      * @param startDate Ngày bắt đầu thống kê (format: yyyy-MM-dd, required)
      * @param endDate Ngày kết thúc thống kê (format: yyyy-MM-dd, required)
-     * @return ResponseEntity chứa danh sách lương sales theo khoảng thời gian
+     * @return ResponseEntity chứa thông tin lương cá nhân của sales hiện tại
      */
     @GetMapping("/sales-salaries")
-    @PreAuthorize("@jwtTokenService.hasResourceRole('video-veo3-be', 'admin')")
     public ResponseEntity<ApiResponse<List<SalesSalaryDto>>> getSalesSalariesByDateRange(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         String tenantId = TenantContext.getTenantId();
-        log.info("[Tenant: {}] Received request to calculate sales salaries from {} to {}", tenantId, startDate, endDate);
+        
+        // Lấy tên user hiện tại từ JWT
+        String currentSalesName;
+        try {
+            currentSalesName = jwtTokenService.getCurrentUserNameFromJwt();
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Failed to extract user name from JWT: {}", tenantId, e.getMessage());
+            throw new SecurityException("Không thể xác định thông tin người dùng từ token");
+        }
+        
+        log.info("[Tenant: {}] User '{}' calculating personal sales salaries from {} to {}", 
+                tenantId, currentSalesName, startDate, endDate);
 
-        List<SalesSalaryDto> salesSalaries = videoService.calculateSalesSalariesByDateRange(startDate, endDate);
+        // Gọi method mới với currentSalesName
+        List<SalesSalaryDto> salesSalaries = videoService.calculateSalesSalariesByDateRangeForCurrentUser(
+                startDate, endDate, currentSalesName);
+        
         String message = startDate.equals(endDate) ?
-                String.format("Tính lương sales ngày %s thành công", startDate) :
-                String.format("Tính lương sales từ %s đến %s thành công", startDate, endDate);
+                String.format("Tính lương cá nhân ngày %s thành công", startDate) :
+                String.format("Tính lương cá nhân từ %s đến %s thành công", startDate, endDate);
         
         return ResponseUtil.ok(message, salesSalaries);
     }
