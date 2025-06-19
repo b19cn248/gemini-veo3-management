@@ -1,5 +1,8 @@
 package com.ptit.google.veo3.controller;
 
+import com.ptit.google.veo3.common.response.ApiResponse;
+import com.ptit.google.veo3.common.response.PaginatedResponse;
+import com.ptit.google.veo3.common.util.ResponseUtil;
 import com.ptit.google.veo3.dto.*;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
@@ -10,22 +13,13 @@ import com.ptit.google.veo3.service.VideoAutoResetService;
 import com.ptit.google.veo3.service.VideoService;
 import com.ptit.google.veo3.service.interfaces.IJwtTokenService;
 import com.ptit.google.veo3.service.interfaces.IStaffWorkloadService;
-import com.ptit.google.veo3.service.interfaces.IVideoService;
 import com.ptit.google.veo3.service.interfaces.IVideoPricingService;
-import com.ptit.google.veo3.util.VideoPricingUtil;
-import com.ptit.google.veo3.common.response.ApiResponse;
-import com.ptit.google.veo3.common.response.PaginatedResponse;
-import com.ptit.google.veo3.common.util.ResponseUtil;
-import com.ptit.google.veo3.mapper.VideoMapper;
-import com.ptit.google.veo3.mapper.StaffWorkloadMapper;
-import com.ptit.google.veo3.mapper.SalesSalaryMapper;
-import com.ptit.google.veo3.mapper.StaffSalaryMapper;
+import com.ptit.google.veo3.service.interfaces.IVideoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
@@ -82,10 +76,6 @@ public class VideoController {
     private final IStaffWorkloadService staffWorkloadService;
     private final VideoAutoResetService videoAutoResetService;
     private final IVideoPricingService videoPricingService;
-    private final VideoMapper videoMapper;
-    private final StaffWorkloadMapper staffWorkloadMapper;
-    private final SalesSalaryMapper salesSalaryMapper;
-    private final StaffSalaryMapper staffSalaryMapper;
 
     /**
      * POST /api/v1/videos - Tạo mới video
@@ -106,9 +96,9 @@ public class VideoController {
         BigDecimal[] orderValueAndPrice = videoPricingService.calculateOrderValueAndPrice(videoDuration);
         BigDecimal orderValue = orderValueAndPrice[0];
         BigDecimal calculatedPrice = orderValueAndPrice[1];
-        
+
         requestDto.setOrderValue(orderValue);
-        
+
         if (calculatedPrice != null) {
             requestDto.setPrice(calculatedPrice);
             log.info("[Tenant: {}] Auto-calculated price {} for order value {} (customer: {})",
@@ -145,9 +135,9 @@ public class VideoController {
         BigDecimal[] orderValueAndPrice = videoPricingService.calculateOrderValueAndPrice(videoDuration);
         BigDecimal orderValue = orderValueAndPrice[0];
         BigDecimal calculatedPrice = orderValueAndPrice[1];
-        
+
         requestDto.setOrderValue(orderValue);
-        
+
         if (calculatedPrice != null) {
             requestDto.setPrice(calculatedPrice);
             log.info("[Tenant: {}] Auto-calculated price {} for order value {} during update (video ID: {})",
@@ -310,13 +300,10 @@ public class VideoController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate paymentDate,
             @RequestParam(required = false) String createdBy,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDirection,
-            @RequestHeader(value = "db", required = false) String dbHeader) {
+            @RequestParam(defaultValue = "desc") String sortDirection
+    ) {
 
         String tenantId = TenantContext.getTenantId();
-
-        // In ra value của header "db"
-        log.info("Header 'db' value: {}", dbHeader);
 
         log.info("[Tenant: {}] Received request to get all videos - page: {}, size: {}, sortBy: {}, direction: {}",
                 tenantId, page, size, sortBy, sortDirection);
@@ -357,8 +344,8 @@ public class VideoController {
 
         List<VideoResponseDto> videos = videoService.searchByCustomerName(customerName);
         return ResponseUtil.ok(
-            String.format("Tìm thấy %d video cho khách hàng '%s'", videos.size(), customerName), 
-            videos
+                String.format("Tìm thấy %d video cho khách hàng '%s'", videos.size(), customerName),
+                videos
         );
     }
 
@@ -376,10 +363,10 @@ public class VideoController {
         log.info("[Tenant: {}] Received request to search video by ID: {}", tenantId, id);
 
         List<VideoResponseDto> videos = videoService.searchById(id);
-        String message = videos.isEmpty() ? 
-            String.format("Không tìm thấy video với ID '%d'", id) :
-            String.format("Tìm thấy video với ID '%d'", id);
-        
+        String message = videos.isEmpty() ?
+                String.format("Không tìm thấy video với ID '%d'", id) :
+                String.format("Tìm thấy video với ID '%d'", id);
+
         return ResponseUtil.ok(message, videos);
     }
 
@@ -396,8 +383,8 @@ public class VideoController {
 
         List<VideoResponseDto> videos = videoService.getVideosByStatus(status);
         return ResponseUtil.ok(
-            String.format("Lấy danh sách video có trạng thái '%s' thành công", status),
-            videos
+                String.format("Lấy danh sách video có trạng thái '%s' thành công", status),
+                videos
         );
     }
 
@@ -537,52 +524,57 @@ public class VideoController {
     }
 
     /**
-     * GET /api/v1/videos/staff-salaries - Lấy tổng tiền lương của các nhân viên
+     * GET /api/v1/videos/staff-salaries - Lấy tổng tiền lương của các nhân viên theo khoảng thời gian
      * Tính các video đã thanh toán và bị bùng
-     * Có thể lọc theo ngày thanh toán
+     * Lọc theo khoảng thời gian thanh toán
      *
-     * @param date Ngày cần thống kê (format: yyyy-MM-dd, optional)
+     * @param startDate Ngày bắt đầu thống kê (format: yyyy-MM-dd, required)
+     * @param endDate Ngày kết thúc thống kê (format: yyyy-MM-dd, required)
      * @return ResponseEntity chứa danh sách tổng tiền lương của từng nhân viên
      */
     @GetMapping("/staff-salaries")
-    public ResponseEntity<ApiResponse<List<StaffSalaryDto>>> getStaffSalaries(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+    public ResponseEntity<ApiResponse<List<StaffSalaryDto>>> getStaffSalariesByDateRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         String tenantId = TenantContext.getTenantId();
-        log.info("[Tenant: {}] Received request to get staff salaries for date: {}", tenantId, date);
+        log.info("[Tenant: {}] Received request to get staff salaries from {} to {}", tenantId, startDate, endDate);
 
-        List<StaffSalaryDto> salaries = videoService.calculateStaffSalaries(date);
-        String message = date != null ?
-            String.format("Lấy thông tin lương nhân viên ngày %s thành công (bao gồm đơn bị bùng)", date) :
-            "Lấy thông tin lương nhân viên thành công (bao gồm đơn bị bùng)";
-        
+        List<StaffSalaryDto> salaries = videoService.calculateStaffSalariesByDateRange(startDate, endDate);
+        String message = startDate.equals(endDate) ?
+                String.format("Lấy thông tin lương nhân viên ngày %s thành công (bao gồm đơn bị bùng)", startDate) :
+                String.format("Lấy thông tin lương nhân viên từ %s đến %s thành công (bao gồm đơn bị bùng)", startDate, endDate);
+
         return ResponseUtil.ok(message, salaries);
     }
 
     /**
-     * GET /api/v1/videos/sales-salaries - Tính lương sales theo ngày thanh toán
+     * GET /api/v1/videos/sales-salaries - Tính lương sales theo khoảng thời gian thanh toán
      * <p>
      * Business Logic:
      * - Lọc videos có paymentStatus = 'DA_THANH_TOAN'
-     * - Lọc theo paymentDate = currentDate
+     * - Lọc theo paymentDate trong khoảng startDate đến endDate
      * - Group theo createdBy (sales person)
      * - Tính tổng price per sales
-     * - Hoa hồng = tổng price * 12%
+     * - Hoa hồng = tổng price * 10% hoặc 12% (tùy sales)
      *
-     * @param currentDate Ngày hiện tại cần thống kê (format: yyyy-MM-dd, required)
-     * @return ResponseEntity chứa danh sách lương sales theo ngày
+     * @param startDate Ngày bắt đầu thống kê (format: yyyy-MM-dd, required)
+     * @param endDate Ngày kết thúc thống kê (format: yyyy-MM-dd, required)
+     * @return ResponseEntity chứa danh sách lương sales theo khoảng thời gian
      */
     @GetMapping("/sales-salaries")
     @PreAuthorize("@jwtTokenService.hasResourceRole('video-veo3-be', 'admin')")
-    public ResponseEntity<ApiResponse<List<SalesSalaryDto>>> getSalesSalariesByDate(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate currentDate) {
+    public ResponseEntity<ApiResponse<List<SalesSalaryDto>>> getSalesSalariesByDateRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         String tenantId = TenantContext.getTenantId();
-        log.info("[Tenant: {}] Received request to calculate sales salaries for date: {}", tenantId, currentDate);
+        log.info("[Tenant: {}] Received request to calculate sales salaries from {} to {}", tenantId, startDate, endDate);
 
-        List<SalesSalaryDto> salesSalaries = videoService.calculateSalesSalariesByDate(currentDate);
-        return ResponseUtil.ok(
-            String.format("Tính lương sales ngày %s thành công", currentDate),
-            salesSalaries
-        );
+        List<SalesSalaryDto> salesSalaries = videoService.calculateSalesSalariesByDateRange(startDate, endDate);
+        String message = startDate.equals(endDate) ?
+                String.format("Tính lương sales ngày %s thành công", startDate) :
+                String.format("Tính lương sales từ %s đến %s thành công", startDate, endDate);
+        
+        return ResponseUtil.ok(message, salesSalaries);
     }
 
     /**
@@ -609,8 +601,8 @@ public class VideoController {
 
         WorkloadInfo workloadInfo = staffWorkloadService.getWorkloadInfo(targetStaff);
         return ResponseUtil.ok(
-            String.format("Lấy thông tin workload của nhân viên '%s' thành công", targetStaff),
-            workloadInfo
+                String.format("Lấy thông tin workload của nhân viên '%s' thành công", targetStaff),
+                workloadInfo
         );
     }
 
@@ -687,7 +679,6 @@ public class VideoController {
     }
 
 
-
     /**
      * GET /api/v1/videos/check-customer - Kiểm tra khách hàng đã tồn tại trong hệ thống
      * <p>
@@ -719,24 +710,24 @@ public class VideoController {
         boolean exists = videoService.checkCustomerExists(trimmedCustomerName);
 
         Map<String, Object> data = Map.of(
-            "customerName", trimmedCustomerName,
-            "exists", exists,
-            "warning", exists ?
-                String.format("Khách hàng '%s' đã tồn tại trong hệ thống, kiểm tra lại xem có thể bị trung đơn", trimmedCustomerName) :
-                null
+                "customerName", trimmedCustomerName,
+                "exists", exists,
+                "warning", exists ?
+                        String.format("Khách hàng '%s' đã tồn tại trong hệ thống, kiểm tra lại xem có thể bị trung đơn", trimmedCustomerName) :
+                        null
         );
 
         String message = exists ? "Khách hàng đã tồn tại trong hệ thống" : "Khách hàng chưa tồn tại trong hệ thống";
-        
+
         log.info("[Tenant: {}] Customer '{}' existence check result: {}", tenantId, trimmedCustomerName, exists);
         return ResponseUtil.ok(message, data);
     }
 
     /**
      * POST /api/v1/videos/staff-limit - Thiết lập giới hạn cho nhân viên (ADMIN ONLY)
-     * 
-     * @param staffName Tên nhân viên cần giới hạn (required)
-     * @param lockDays Số ngày khóa (required, max 30 ngày)
+     *
+     * @param staffName       Tên nhân viên cần giới hạn (required)
+     * @param lockDays        Số ngày khóa (required, max 30 ngày)
      * @param maxOrdersPerDay Số đơn tối đa có thể nhận trong một ngày (optional, default 3, min 1, max 50)
      * @return ResponseEntity chứa thông tin giới hạn đã tạo
      * - 200 OK: Tạo giới hạn thành công
@@ -750,7 +741,7 @@ public class VideoController {
             @RequestParam(required = false, defaultValue = "3") Integer maxOrdersPerDay
     ) {
         String tenantId = TenantContext.getTenantId();
-        log.info("[Tenant: {}] Received request to set staff limit - Staff: '{}', Days: {}, Max orders per day: {}", 
+        log.info("[Tenant: {}] Received request to set staff limit - Staff: '{}', Days: {}, Max orders per day: {}",
                 tenantId, staffName, lockDays, maxOrdersPerDay);
 
         try {
@@ -771,9 +762,9 @@ public class VideoController {
             limitInfo.put("remainingDays", lockDays);
             limitInfo.put("createdBy", jwtTokenService.getCurrentUserNameFromJwt());
 
-            String message = String.format("Đã thiết lập giới hạn cho nhân viên '%s' trong %d ngày với tối đa %d đơn/ngày", 
+            String message = String.format("Đã thiết lập giới hạn cho nhân viên '%s' trong %d ngày với tối đa %d đơn/ngày",
                     staffName.trim(), lockDays, maxOrdersPerDay);
-            
+
             return ResponseUtil.ok(message, limitInfo);
 
         } catch (IllegalArgumentException e) {
@@ -792,7 +783,7 @@ public class VideoController {
 
     /**
      * DELETE /api/v1/videos/staff-limit - Hủy giới hạn nhân viên (ADMIN ONLY)
-     * 
+     *
      * @param staffName Tên nhân viên cần hủy giới hạn (required)
      * @return ResponseEntity chứa kết quả hủy giới hạn
      * - 200 OK: Hủy giới hạn thành công
@@ -810,7 +801,7 @@ public class VideoController {
 
             Map<String, Object> responseData = Map.of("staffName", staffName.trim(), "action", "LIMIT_REMOVED");
             String message = String.format("Đã hủy giới hạn cho nhân viên '%s'", staffName.trim());
-            
+
             return ResponseUtil.ok(message, responseData);
 
         } catch (IllegalArgumentException e) {
@@ -829,7 +820,7 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos/staff-limits - Lấy danh sách giới hạn nhân viên đang active
-     * 
+     *
      * @return ResponseEntity chứa danh sách tất cả giới hạn đang có hiệu lực
      * - 200 OK: Lấy danh sách thành công
      */
@@ -857,7 +848,7 @@ public class VideoController {
 
     /**
      * GET /api/v1/videos/staff-limit/check - Kiểm tra quota và trạng thái giới hạn nhân viên
-     * 
+     *
      * @param staffName Tên nhân viên cần kiểm tra (required)
      * @return ResponseEntity chứa thông tin chi tiết về quota và trạng thái giới hạn
      * - 200 OK: Kiểm tra thành công

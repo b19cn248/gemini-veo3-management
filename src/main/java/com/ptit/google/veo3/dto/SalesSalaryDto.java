@@ -32,8 +32,15 @@ public class SalesSalaryDto {
     
     /**
      * Ngày thống kê lương (yyyy-MM-dd format)
+     * Sử dụng khi thống kê theo một ngày cụ thể
      */
     private String salaryDate;
+    
+    /**
+     * Khoảng thời gian thống kê lương (format: "dd/MM/yyyy - dd/MM/yyyy")
+     * Sử dụng khi thống kê theo khoảng thời gian
+     */
+    private String salaryDateRange;
     
     /**
      * Tổng số video đã thanh toán trong ngày

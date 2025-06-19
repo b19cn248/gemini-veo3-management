@@ -62,7 +62,9 @@ public interface IVideoService {
     
     // Salary calculations
     List<StaffSalaryDto> calculateStaffSalaries(LocalDate date);
+    List<StaffSalaryDto> calculateStaffSalariesByDateRange(LocalDate startDate, LocalDate endDate);
     List<SalesSalaryDto> calculateSalesSalariesByDate(LocalDate targetDate);
+    List<SalesSalaryDto> calculateSalesSalariesByDateRange(LocalDate startDate, LocalDate endDate);
     
     // Validation operations
     boolean checkCustomerExists(String customerName);

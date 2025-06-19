@@ -32,6 +32,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -899,6 +900,21 @@ public class VideoService implements IVideoService {
     }
 
     /**
+     * Tính tổng tiền lương cho các nhân viên theo khoảng thời gian
+     * Bao gồm cả các video đã thanh toán và bị bùng
+     */
+    public List<StaffSalaryDto> calculateStaffSalariesByDateRange(LocalDate startDate, LocalDate endDate) {
+        validateDateRange(startDate, endDate);
+        
+        log.info("Calculating staff salaries from {} to {} (including unpaid orders)", startDate, endDate);
+        
+        List<StaffSalaryDto> salaries = videoRepository.calculateStaffSalariesByDateRange(startDate, endDate);
+        
+        log.info("Found salary information for {} staff members", salaries.size());
+        return salaries;
+    }
+
+    /**
      * Kiểm tra khách hàng đã tồn tại trong hệ thống hay chưa
      * 
      * Business Logic:
@@ -1273,6 +1289,67 @@ public class VideoService implements IVideoService {
         
         return salesSalaries;
     }
+
+    /**
+     * Tính lương sales theo khoảng thời gian
+     */
+    public List<SalesSalaryDto> calculateSalesSalariesByDateRange(LocalDate startDate, LocalDate endDate) {
+        validateDateRange(startDate, endDate);
+        
+        log.info("Calculating sales salaries from {} to {}", startDate, endDate);
+        
+        // Nếu cùng ngày, dùng logic cũ
+        if (startDate.equals(endDate)) {
+            return calculateSalesSalariesByDate(startDate);
+        }
+        
+        List<SalesSalaryDto> salesSalaries;
+        
+        try {
+            log.debug("Attempting to use interface projection for sales salary calculation by date range");
+            List<SalesSalaryProjection> projections = videoRepository.calculateSalesSalariesProjectionByDateRange(startDate, endDate);
+            
+            salesSalaries = projections.stream()
+                    .map(projection -> convertProjectionToDto(projection, startDate, endDate))
+                    .toList();
+                    
+            log.info("Successfully calculated sales salaries for date range");
+            
+        } catch (Exception e) {
+            log.warn("Interface projection failed for date range, falling back to native query: {}", e.getMessage());
+            
+            // Fallback sang native query nếu projection fail
+            salesSalaries = calculateSalesSalariesByDateRangeNative(startDate, endDate);
+        }
+        
+        // Log results
+        if (!salesSalaries.isEmpty()) {
+            long totalVideos = salesSalaries.stream()
+                    .mapToLong(SalesSalaryDto::getTotalPaidVideos)
+                    .sum();
+            
+            BigDecimal totalCommission = salesSalaries.stream()
+                    .map(SalesSalaryDto::getCommissionSalary)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            log.info("Sales salary calculation completed for date range {} to {} - {} sales, {} videos, total commission: {}", 
+                    startDate, endDate, salesSalaries.size(), totalVideos, totalCommission);
+        }
+        
+        return salesSalaries;
+    }
+
+    /**
+     * Validate date range
+     */
+    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            throw new IllegalArgumentException("StartDate và EndDate không được null");
+        }
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("StartDate không được sau EndDate");
+        }
+    }
     
     /**
      * Helper method để log kết quả tính lương sales
@@ -1308,6 +1385,40 @@ public class VideoService implements IVideoService {
     }
 
     /**
+     * Helper method để convert SalesSalaryProjection sang SalesSalaryDto với date range
+     */
+    private SalesSalaryDto convertProjectionToDto(SalesSalaryProjection projection, LocalDate startDate, LocalDate endDate) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        
+        return SalesSalaryDto.builder()
+                .salesName(projection.getSalesName())
+                .salaryDate(startDate.equals(endDate) ? startDate.format(formatter) : null)
+                .salaryDateRange(!startDate.equals(endDate) ? 
+                    String.format("%s - %s", startDate.format(formatter), endDate.format(formatter)) : null)
+                .totalPaidVideos(projection.getTotalPaidVideos())
+                .totalSalesValue(projection.getTotalSalesValue())
+                .commissionSalary(projection.getCommissionSalary())
+                .commissionRate(calculateCommissionRate(projection))
+                .build();
+    }
+
+    /**
+     * Helper method to calculate commission rate based on sales name
+     */
+    private BigDecimal calculateCommissionRate(SalesSalaryProjection projection) {
+        String salesName = projection.getSalesName();
+        if (salesName != null) {
+            String normalizedName = salesName.trim().toLowerCase();
+            if (normalizedName.equals("thuong nguyen") || 
+                normalizedName.equals("thuong") || 
+                normalizedName.equals("nguyễn thuỳ hạnh")) {
+                return BigDecimal.valueOf(0.12);
+            }
+        }
+        return BigDecimal.valueOf(0.10);
+    }
+
+    /**
      * BACKUP: Method tính lương sales sử dụng native query
      */
     private List<SalesSalaryDto> calculateSalesSalariesByDateNative(LocalDate targetDate) {
@@ -1317,6 +1428,27 @@ public class VideoService implements IVideoService {
         
         return results.stream()
                 .map(row -> convertNativeResultToDto(row, targetDate))
+                .toList();
+    }
+
+    /**
+     * BACKUP: Method tính lương sales theo date range sử dụng native query
+     */
+    private List<SalesSalaryDto> calculateSalesSalariesByDateRangeNative(LocalDate startDate, LocalDate endDate) {
+        log.info("Using native query fallback for sales salaries calculation from {} to {}", startDate, endDate);
+        
+        List<Object[]> results = videoRepository.calculateSalesSalariesNativeByDateRange(startDate, endDate);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        
+        return results.stream()
+                .map(row -> {
+                    SalesSalaryDto dto = convertNativeResultToDto(row, startDate);
+                    // Update date fields for date range
+                    dto.setSalaryDate(startDate.equals(endDate) ? startDate.format(formatter) : null);
+                    dto.setSalaryDateRange(!startDate.equals(endDate) ? 
+                        String.format("%s - %s", startDate.format(formatter), endDate.format(formatter)) : null);
+                    return dto;
+                })
                 .toList();
     }
 

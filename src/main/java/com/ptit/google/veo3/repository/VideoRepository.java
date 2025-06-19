@@ -89,6 +89,18 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
             "GROUP BY v.assignedStaff")
     List<StaffSalaryDto> calculateStaffSalaries(@Param("date") LocalDate date);
 
+    @Query("SELECT new com.ptit.google.veo3.dto.StaffSalaryDto(" +
+            "COALESCE(v.assignedStaff, 'Chưa ai nhận'), " +
+            "SUM(v.orderValue), " +
+            "COUNT(v)) " +
+            "FROM Video v " +
+            "WHERE v.isDeleted = false " +
+            "AND v.paymentStatus IN ('DA_THANH_TOAN', 'BUNG') " +
+            "AND DATE(v.paymentDate) >= :startDate " +
+            "AND DATE(v.paymentDate) <= :endDate " +
+            "GROUP BY v.assignedStaff")
+    List<StaffSalaryDto> calculateStaffSalariesByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
     /**
      * Đếm số video theo nhân viên được giao và trạng thái
      */
@@ -220,6 +232,34 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     List<SalesSalaryProjection> calculateSalesSalariesProjectionByDate(@Param("targetDate") LocalDate targetDate);
 
     /**
+     * Tính lương sales theo khoảng thời gian sử dụng interface projection
+     * 
+     * @param startDate Ngày bắt đầu
+     * @param endDate Ngày kết thúc
+     * @return Danh sách projection chứa thông tin lương sales theo khoảng thời gian
+     */
+    @Query("""
+            SELECT 
+                COALESCE(v.createdBy, 'Unknown Sales') as salesName,
+                COUNT(v) as totalPaidVideos,
+                COALESCE(SUM(v.price), 0) as totalSalesValue,
+                CASE 
+                    WHEN LOWER(TRIM(COALESCE(v.createdBy, ''))) IN ('thuong nguyen', 'thuong', 'Nguyễn Thuỳ Hạnh')
+                    THEN COALESCE(SUM(v.price) * 0.12, 0)
+                    ELSE COALESCE(SUM(v.price) * 0.10, 0)
+                END as commissionSalary
+            FROM Video v 
+            WHERE v.isDeleted = false 
+            AND v.paymentStatus = 'DA_THANH_TOAN' 
+            AND DATE(v.paymentDate) >= :startDate 
+            AND DATE(v.paymentDate) <= :endDate 
+            AND v.price IS NOT NULL
+            GROUP BY v.createdBy
+            ORDER BY SUM(v.price) DESC
+            """)
+    List<SalesSalaryProjection> calculateSalesSalariesProjectionByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    /**
      * BACKUP: Native query để tính lương sales - sử dụng nếu JPQL projection có vấn đề
      * 
      * @param targetDate Ngày cần thống kê lương (yyyy-MM-dd)
@@ -244,6 +284,34 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
             ORDER BY SUM(v.price) DESC
             """, nativeQuery = true)
     List<Object[]> calculateSalesSalariesNativeByDate(@Param("targetDate") LocalDate targetDate);
+
+    /**
+     * BACKUP: Native query để tính lương sales theo khoảng thời gian
+     * 
+     * @param startDate Ngày bắt đầu
+     * @param endDate Ngày kết thúc
+     * @return Danh sách Object[] chứa: salesName, totalVideos, totalSalesValue, commissionSalary
+     */
+    @Query(value = """
+            SELECT 
+                COALESCE(v.created_by, 'Unknown Sales') as sales_name,
+                COUNT(v.id) as total_paid_videos,
+                COALESCE(SUM(v.price), 0) as total_sales_value,
+                CASE 
+                    WHEN LOWER(TRIM(COALESCE(v.created_by, ''))) IN ('thuong nguyen', 'thuong')
+                    THEN COALESCE(SUM(v.price) * 0.12, 0)
+                    ELSE COALESCE(SUM(v.price) * 0.10, 0)
+                END as commission_salary
+            FROM videos v 
+            WHERE v.is_deleted = false 
+            AND v.payment_status = 'DA_THANH_TOAN' 
+            AND DATE(v.payment_date) >= :startDate 
+            AND DATE(v.payment_date) <= :endDate 
+            AND v.price IS NOT NULL
+            GROUP BY v.created_by
+            ORDER BY SUM(v.price) DESC
+            """, nativeQuery = true)
+    List<Object[]> calculateSalesSalariesNativeByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     /**
      * Check xem có nhân viên nào đã từng được assign video không
