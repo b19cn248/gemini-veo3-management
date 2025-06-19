@@ -268,6 +268,55 @@ public class JwtTokenService implements IJwtTokenService {
         return hasResourceRole("video-veo3-be", "admin");
     }
     
+    /**
+     * Kiểm tra xem người dùng hiện tại có role admin của realm không (super admin)
+     * 
+     * @return true nếu có role admin của realm, false nếu không
+     */
+    public boolean isRealmAdmin() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            
+            if (authentication == null || !(authentication instanceof JwtAuthenticationToken jwtAuthToken)) {
+                log.warn("No valid JWT authentication found");
+                return false;
+            }
+            
+            Jwt jwt = jwtAuthToken.getToken();
+            if (jwt == null) {
+                log.warn("JWT token is null");
+                return false;
+            }
+            
+            // Kiểm tra realm_access
+            Object realmAccessObj = jwt.getClaim("realm_access");
+            if (!(realmAccessObj instanceof Map<?, ?> realmAccess)) {
+                log.debug("No realm_access claim found in JWT");
+                return false;
+            }
+            
+            // Lấy roles của realm
+            Object rolesObj = realmAccess.get("roles");
+            if (!(rolesObj instanceof List<?> rolesList)) {
+                log.debug("No realm roles found");
+                return false;
+            }
+            
+            // Kiểm tra role admin
+            boolean isRealmAdmin = rolesList.stream()
+                    .map(Object::toString)
+                    .anyMatch(role -> role.equalsIgnoreCase("admin"));
+            
+            log.debug("Realm admin check - Has realm admin role: {}", isRealmAdmin);
+            
+            return isRealmAdmin;
+            
+        } catch (Exception e) {
+            log.error("Error checking realm admin role: ", e);
+            return false;
+        }
+    }
+    
     public boolean hasPermissionToUpdateVideo(String assignedStaff) {
         try {
             String currentUserName = getCurrentUserNameFromJwt();

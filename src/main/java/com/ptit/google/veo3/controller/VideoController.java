@@ -271,6 +271,22 @@ public class VideoController {
         log.info("[Tenant: {}] Received request to get video with ID: {}", tenantId, id);
 
         VideoResponseDto video = videoService.getVideoById(id);
+        
+        // Apply billImageUrl permission logic
+        String currentUserName = jwtTokenService.getCurrentUserNameFromJwt();
+        boolean isRealmAdmin = jwtTokenService.isRealmAdmin();
+        boolean isResourceAdmin = jwtTokenService.isVideoVeo3BeAdmin();
+        
+        // Logic phân quyền cho billImageUrl:
+        // 1. Super Admin (realm admin): Xem được tất cả billImageUrl
+        // 2. Resource Admin (video-veo3-be): Chỉ xem được billImageUrl của video do mình tạo
+        // 3. User khác: billImageUrl luôn là null
+        if (!isRealmAdmin) {
+            if (!isResourceAdmin || !currentUserName.equals(video.getCreatedBy())) {
+                video.setBillImageUrl(null);
+            }
+        }
+        
         return ResponseUtil.ok("Lấy thông tin video thành công", video);
     }
 
@@ -548,18 +564,24 @@ public class VideoController {
     }
 
     /**
-     * GET /api/v1/videos/sales-salaries - Tính lương cá nhân của sales hiện tại
+     * GET /api/v1/videos/sales-salaries - Tính lương sales với realm super admin access control
      * <p>
      * Business Logic:
+     * - Super Admin (realm role "admin"): Xem lương của TẤT CẢ sales trong hệ thống
+     * - Regular User (no realm admin): Chỉ xem lương cá nhân
      * - Lọc videos có paymentStatus = 'DA_THANH_TOAN'
      * - Lọc theo paymentDate trong khoảng startDate đến endDate
-     * - Chỉ hiển thị lương của sales hiện tại (từ JWT token)
-     * - Lọc theo createdBy = currentUserName
      * - Hoa hồng = tổng price * 10% hoặc 12% (tùy sales)
+     * 
+     * Role-Based Access:
+     * - Super Admin (realm_access.roles[] contains "admin"): calculateSalesSalariesByDateRange() - tất cả sales
+     * - Regular User: calculateSalesSalariesByDateRangeForCurrentUser() - chỉ mình
+     * 
+     * Note: Chỉ realm admin mới có quyền xem tất cả, không phải resource admin
      *
      * @param startDate Ngày bắt đầu thống kê (format: yyyy-MM-dd, required)
      * @param endDate Ngày kết thúc thống kê (format: yyyy-MM-dd, required)
-     * @return ResponseEntity chứa thông tin lương cá nhân của sales hiện tại
+     * @return ResponseEntity chứa thông tin lương sales (tất cả cho super admin, cá nhân cho user)
      */
     @GetMapping("/sales-salaries")
     public ResponseEntity<ApiResponse<List<SalesSalaryDto>>> getSalesSalariesByDateRange(
@@ -567,25 +589,47 @@ public class VideoController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         String tenantId = TenantContext.getTenantId();
         
-        // Lấy tên user hiện tại từ JWT
+        // Lấy thông tin user hiện tại và check realm super admin role
         String currentSalesName;
+        boolean isSuperAdmin;
         try {
             currentSalesName = jwtTokenService.getCurrentUserNameFromJwt();
+            isSuperAdmin = jwtTokenService.isCurrentUserAdmin(); // ✅ REALM role check
         } catch (Exception e) {
-            log.error("[Tenant: {}] Failed to extract user name from JWT: {}", tenantId, e.getMessage());
+            log.error("[Tenant: {}] Failed to extract user info from JWT: {}", tenantId, e.getMessage());
             throw new SecurityException("Không thể xác định thông tin người dùng từ token");
         }
         
-        log.info("[Tenant: {}] User '{}' calculating personal sales salaries from {} to {}", 
-                tenantId, currentSalesName, startDate, endDate);
-
-        // Gọi method mới với currentSalesName
-        List<SalesSalaryDto> salesSalaries = videoService.calculateSalesSalariesByDateRangeForCurrentUser(
-                startDate, endDate, currentSalesName);
+        List<SalesSalaryDto> salesSalaries;
+        String message;
         
-        String message = startDate.equals(endDate) ?
-                String.format("Tính lương cá nhân ngày %s thành công", startDate) :
-                String.format("Tính lương cá nhân từ %s đến %s thành công", startDate, endDate);
+        if (isSuperAdmin) {
+            // ✅ SUPER ADMIN (realm role "admin"): Xem tất cả sales
+            log.info("[Tenant: {}] Super Admin '{}' (realm role) calculating ALL sales salaries from {} to {}", 
+                    tenantId, currentSalesName, startDate, endDate);
+            
+            salesSalaries = videoService.calculateSalesSalariesByDateRange(startDate, endDate);
+            
+            message = startDate.equals(endDate) ?
+                    String.format("Super Admin - Tính lương tất cả sales ngày %s thành công", startDate) :
+                    String.format("Super Admin - Tính lương tất cả sales từ %s đến %s thành công", startDate, endDate);
+                    
+        } else {
+            // ✅ REGULAR USER (no realm admin): Chỉ xem lương cá nhân
+            log.info("[Tenant: {}] User '{}' calculating personal sales salaries from {} to {}", 
+                    tenantId, currentSalesName, startDate, endDate);
+            
+            salesSalaries = videoService.calculateSalesSalariesByDateRangeForCurrentUser(
+                    startDate, endDate, currentSalesName);
+            
+            message = startDate.equals(endDate) ?
+                    String.format("Tính lương cá nhân ngày %s thành công", startDate) :
+                    String.format("Tính lương cá nhân từ %s đến %s thành công", startDate, endDate);
+        }
+        
+        // Enhanced audit logging với super admin info
+        log.info("[Tenant: {}] Sales salary calculation completed for user '{}' (super_admin: {}) - {} records returned", 
+                tenantId, currentSalesName, isSuperAdmin, salesSalaries.size());
         
         return ResponseUtil.ok(message, salesSalaries);
     }

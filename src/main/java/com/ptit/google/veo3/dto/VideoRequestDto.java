@@ -68,4 +68,8 @@ public class VideoRequestDto {
      * Thường được tự động tính từ orderValue, nhưng có thể override manual
      */
     private BigDecimal price;
+
+    @Size(max = 500, message = "URL hình ảnh hóa đơn không được vượt quá 500 ký tự")
+    private String billImageUrl;
+
 }

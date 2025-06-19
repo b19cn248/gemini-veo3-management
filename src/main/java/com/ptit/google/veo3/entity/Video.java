@@ -154,6 +154,13 @@ public class Video extends BaseEntity {
     private BigDecimal price;
 
     /**
+     * URL hình ảnh hóa đơn thanh toán
+     * Chỉ hiển thị cho admin hoặc người tạo đơn
+     */
+    @Column(name = "bill_image_url", length = 500)
+    private String billImageUrl;
+
+    /**
      * Quan hệ Many-to-One với User (người được giao)
      * OPTIONAL: Có thể null nếu chưa assign cho ai
      * Sử dụng LAZY loading để tối ưu performance

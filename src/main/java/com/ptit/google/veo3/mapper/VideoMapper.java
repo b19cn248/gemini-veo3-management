@@ -36,6 +36,7 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         dto.setPaymentDate(entity.getPaymentDate());
         dto.setOrderValue(entity.getOrderValue());
         dto.setPrice(entity.getPrice());
+        dto.setBillImageUrl(entity.getBillImageUrl());
         
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
@@ -71,6 +72,7 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         entity.setPaymentDate(dto.getPaymentDate());
         entity.setOrderValue(dto.getOrderValue());
         entity.setPrice(dto.getPrice());
+        entity.setBillImageUrl(dto.getBillImageUrl());
         
         return entity;
     }
@@ -96,6 +98,7 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         entity.setPaymentDate(dto.getPaymentDate());
         entity.setOrderValue(dto.getOrderValue());
         entity.setPrice(dto.getPrice());
+        entity.setBillImageUrl(dto.getBillImageUrl());
     }
 
     public Video fromRequestDto(VideoRequestDto requestDto) {
@@ -122,6 +125,7 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         entity.setPaymentDate(requestDto.getPaymentDate());
         entity.setOrderValue(requestDto.getOrderValue());
         entity.setPrice(requestDto.getPrice());
+        entity.setBillImageUrl(requestDto.getBillImageUrl());
         
         return entity;
     }
@@ -146,5 +150,6 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         entity.setPaymentDate(requestDto.getPaymentDate());
         entity.setOrderValue(requestDto.getOrderValue());
         entity.setPrice(requestDto.getPrice());
+        entity.setBillImageUrl(requestDto.getBillImageUrl());
     }
 }

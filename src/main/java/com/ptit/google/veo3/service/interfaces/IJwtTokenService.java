@@ -46,4 +46,10 @@ public interface IJwtTokenService {
      * @return true if user has permission, false otherwise
      */
     boolean hasPermissionToUpdateVideo(String assignedStaff);
+    
+    /**
+     * Check if current user has realm admin role (super admin)
+     * @return true if user has realm admin role, false otherwise
+     */
+    boolean isRealmAdmin();
 }
