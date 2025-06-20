@@ -44,7 +44,9 @@ public interface IVideoService {
                                        VideoStatus videoStatus, String assignedStaff, 
                                        DeliveryStatus deliveryStatus, 
                                        PaymentStatus paymentStatus,
-                                       LocalDate paymentDate, String createdBy);
+                                       LocalDate fromPaymentDate, LocalDate toPaymentDate,
+                                       LocalDate fromDateCreatedVideo, LocalDate toDateCreatedVideo,
+                                       String createdBy);
     List<VideoResponseDto> getAllVideos();
     List<VideoResponseDto> searchByCustomerName(String customerName);
     List<VideoResponseDto> getVideosByStatus(String statusString);

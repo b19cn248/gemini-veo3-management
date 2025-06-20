@@ -4,6 +4,7 @@ import com.ptit.google.veo3.entity.AuditAction;
 import com.ptit.google.veo3.entity.AuditLog;
 import com.ptit.google.veo3.entity.EntityType;
 import com.ptit.google.veo3.service.AuditService;
+import com.ptit.google.veo3.service.interfaces.IJwtTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -68,6 +69,7 @@ import java.util.Map;
 public class AuditController {
     
     private final AuditService auditService;
+    private final IJwtTokenService jwtTokenService;
     
     // ============= VIDEO HISTORY ENDPOINTS =============
     
@@ -136,14 +138,30 @@ public class AuditController {
      * 
      * Endpoint: GET /api/v1/audit/video/{videoId}/history/all
      * 
+     * Security: CHỈ SUPER ADMIN (Realm Admin) mới có quyền truy cập
+     * - Kiểm tra realm_access.roles[] có chứa "admin" không
+     * - Đây là quyền cao nhất trong hệ thống, khác với resource admin
+     * 
      * @param videoId ID của video
-     * @return ResponseEntity chứa list of audit logs
+     * @return ResponseEntity chứa list of audit logs hoặc error response
      */
     @GetMapping("/video/{videoId}/history/all")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')")
     public ResponseEntity<Map<String, Object>> getVideoHistoryAll(@PathVariable Long videoId) {
+        // Kiểm tra quyền Super Admin (Realm Admin)
+        if (!jwtTokenService.isRealmAdmin()) {
+            log.warn("[SECURITY] Non-super-admin attempted to access full video history. VideoID: {}", videoId);
+            
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Access Denied");
+            errorResponse.put("message", "Chỉ có Super Admin mới có quyền xem lịch sử đầy đủ");
+            errorResponse.put("requiredRole", "Realm Admin");
+            errorResponse.put("videoId", videoId);
+            
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+        
         try {
-            log.info("Getting complete video history for Video ID: {}", videoId);
+            log.info("[SUPER_ADMIN] Getting complete video history for Video ID: {}", videoId);
             
             List<AuditLog> auditLogs = auditService.getVideoHistory(videoId);
             
@@ -152,7 +170,7 @@ public class AuditController {
             response.put("totalCount", auditLogs.size());
             response.put("videoId", videoId);
             
-            log.info("Retrieved {} audit logs for Video ID: {}", auditLogs.size(), videoId);
+            log.info("[SUPER_ADMIN] Retrieved {} audit logs for Video ID: {}", auditLogs.size(), videoId);
             
             return ResponseEntity.ok(response);
             

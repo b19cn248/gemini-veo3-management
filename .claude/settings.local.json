@@ -11,7 +11,8 @@
       "Bash(export:*)",
       "Bash(rm:*)",
       "Bash(java:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

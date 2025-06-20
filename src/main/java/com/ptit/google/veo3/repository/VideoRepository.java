@@ -60,7 +60,10 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
             "AND (:assignedStaff IS NULL OR v.assignedStaff LIKE %:assignedStaff%) " +
             "AND (:deliveryStatus IS NULL OR v.deliveryStatus = :deliveryStatus) " +
             "AND (:paymentStatus IS NULL OR v.paymentStatus = :paymentStatus) " +
-            "AND (:paymentDate IS NULL OR DATE(v.paymentDate) = :paymentDate) " +
+            "AND (:fromPaymentDate IS NULL OR DATE(v.paymentDate) >= :fromPaymentDate) " +
+            "AND (:toPaymentDate IS NULL OR DATE(v.paymentDate) <= :toPaymentDate) " +
+            "AND (:fromDateCreatedVideo IS NULL OR DATE(v.createdAt) >= :fromDateCreatedVideo) " +
+            "AND (:toDateCreatedVideo IS NULL OR DATE(v.createdAt) <= :toDateCreatedVideo) " +
             "AND (:createdBy IS NULL OR v.createdBy LIKE %:createdBy%)")
     Page<Video> getAll(
             Pageable pageable,
@@ -68,7 +71,10 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
             @Param("assignedStaff") String assignedStaff,
             @Param("deliveryStatus") DeliveryStatus deliveryStatus,
             @Param("paymentStatus") PaymentStatus paymentStatus,
-            @Param("paymentDate") LocalDate paymentDate,
+            @Param("fromPaymentDate") LocalDate fromPaymentDate,
+            @Param("toPaymentDate") LocalDate toPaymentDate,
+            @Param("fromDateCreatedVideo") LocalDate fromDateCreatedVideo,
+            @Param("toDateCreatedVideo") LocalDate toDateCreatedVideo,
             @Param("createdBy") String createdBy
     );
 

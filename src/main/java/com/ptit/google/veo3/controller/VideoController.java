@@ -296,13 +296,38 @@ public class VideoController {
      * Query Parameters:
      * - page: Số trang (mặc định: 0)
      * - size: Kích thước trang (mặc định: 10)
+     * - status: Lọc theo trạng thái video (tùy chọn)
+     * - assignedStaff: Lọc theo nhân viên được giao (tùy chọn)
+     * - deliveryStatus: Lọc theo trạng thái giao hàng (tùy chọn)
+     * - paymentStatus: Lọc theo trạng thái thanh toán (tùy chọn)
+     * - fromPaymentDate: Lọc từ ngày thanh toán (tùy chọn, định dạng: yyyy-MM-dd)
+     * - toPaymentDate: Lọc đến ngày thanh toán (tùy chọn, định dạng: yyyy-MM-dd)
+     * - fromDateCreatedVideo: Lọc từ ngày tạo video (tùy chọn, định dạng: yyyy-MM-dd)
+     * - toDateCreatedVideo: Lọc đến ngày tạo video (tùy chọn, định dạng: yyyy-MM-dd)
+     * - createdBy: Lọc theo người tạo (tùy chọn)
      * - sortBy: Trường để sắp xếp (mặc định: createdAt)
      * - sortDirection: Hướng sắp xếp - asc/desc (mặc định: desc)
+     * <p>
+     * Lưu ý về lọc theo khoảng thời gian:
+     * - Nếu chỉ có fromDate: Lấy từ ngày đó trở đi
+     * - Nếu chỉ có toDate: Lấy đến ngày đó
+     * - Nếu có cả hai: Lấy trong khoảng từ fromDate đến toDate
+     * - Nếu fromDate = toDate: Lấy tất cả video trong ngày đó
+     * - Nếu không có: Lấy tất cả video (mặc định)
      *
-     * @param page          - Số trang cần lấy
-     * @param size          - Số lượng record trên mỗi trang
-     * @param sortBy        - Trường để sắp xếp
-     * @param sortDirection - Hướng sắp xếp (asc hoặc desc)
+     * @param page                   - Số trang cần lấy
+     * @param size                   - Số lượng record trên mỗi trang
+     * @param status                 - Trạng thái video cần lọc
+     * @param assignedStaff          - Nhân viên được giao cần lọc
+     * @param deliveryStatus         - Trạng thái giao hàng cần lọc
+     * @param paymentStatus          - Trạng thái thanh toán cần lọc
+     * @param fromPaymentDate        - Lọc từ ngày thanh toán
+     * @param toPaymentDate          - Lọc đến ngày thanh toán
+     * @param fromDateCreatedVideo   - Lọc từ ngày tạo video
+     * @param toDateCreatedVideo     - Lọc đến ngày tạo video
+     * @param createdBy              - Người tạo video cần lọc
+     * @param sortBy                 - Trường để sắp xếp
+     * @param sortDirection          - Hướng sắp xếp (asc hoặc desc)
      * @return ResponseEntity chứa danh sách video với thông tin phân trang
      */
     @GetMapping
@@ -313,7 +338,10 @@ public class VideoController {
             @RequestParam(required = false) String assignedStaff,
             @RequestParam(required = false) DeliveryStatus deliveryStatus,
             @RequestParam(required = false) PaymentStatus paymentStatus,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate paymentDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromPaymentDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toPaymentDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDateCreatedVideo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDateCreatedVideo,
             @RequestParam(required = false) String createdBy,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDirection
@@ -325,7 +353,8 @@ public class VideoController {
                 tenantId, page, size, sortBy, sortDirection);
 
         Page<VideoResponseDto> videoPage = videoService.getAllVideos(page, size, sortBy, sortDirection,
-                status, assignedStaff, deliveryStatus, paymentStatus, paymentDate, createdBy);
+                status, assignedStaff, deliveryStatus, paymentStatus, fromPaymentDate, toPaymentDate,
+                fromDateCreatedVideo, toDateCreatedVideo, createdBy);
 
         return ResponseUtil.okPaginated("Lấy danh sách video thành công", videoPage);
     }
