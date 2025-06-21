@@ -272,22 +272,7 @@ public class VideoController {
         log.info("[Tenant: {}] Received request to get video with ID: {}", tenantId, id);
 
         VideoResponseDto video = videoService.getVideoById(id);
-        
-        // Apply billImageUrl permission logic
-        String currentUserName = jwtTokenService.getCurrentUserNameFromJwt();
-        boolean isRealmAdmin = jwtTokenService.isRealmAdmin();
-        boolean isResourceAdmin = jwtTokenService.isVideoVeo3BeAdmin();
-        
-        // Logic phân quyền cho billImageUrl:
-        // 1. Super Admin (realm admin): Xem được tất cả billImageUrl
-        // 2. Resource Admin (video-veo3-be): Chỉ xem được billImageUrl của video do mình tạo
-        // 3. User khác: billImageUrl luôn là null
-        if (!isRealmAdmin) {
-            if (!isResourceAdmin || !currentUserName.equals(video.getCreatedBy())) {
-                video.setBillImageUrl(null);
-            }
-        }
-        
+        video.setBillImageUrl(null);
         return ResponseUtil.ok("Lấy thông tin video thành công", video);
     }
 

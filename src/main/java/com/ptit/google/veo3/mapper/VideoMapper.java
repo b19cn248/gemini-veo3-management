@@ -36,7 +36,6 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         dto.setPaymentDate(entity.getPaymentDate());
         dto.setOrderValue(entity.getOrderValue());
         dto.setPrice(entity.getPrice());
-        dto.setBillImageUrl(entity.getBillImageUrl());
         dto.setLinkfb(entity.getLinkfb());
         dto.setPhoneNumber(entity.getPhoneNumber());
         
