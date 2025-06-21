@@ -336,6 +336,18 @@ public class VideoService implements IVideoService {
             existingVideo.setCompletedTime(LocalDateTime.now());
         }
 
+        // Tự động set delivery status khi status = DA_SUA_XONG
+        if (status == VideoStatus.DA_SUA_XONG) {
+            DeliveryStatus oldDeliveryStatus = existingVideo.getDeliveryStatus();
+            existingVideo.setDeliveryStatus(DeliveryStatus.SUA_XONG_CAN_GUI);
+            
+            // Log delivery status change for audit trail
+            if (oldDeliveryStatus != DeliveryStatus.SUA_XONG_CAN_GUI) {
+                log.info("Auto-updating delivery status from '{}' to 'SUA_XONG_CAN_GUI' for video ID: {} due to status change to DA_SUA_XONG",
+                        oldDeliveryStatus, id);
+            }
+        }
+
         Video updatedVideo = videoRepository.save(existingVideo);
 
         // Audit log cho việc thay đổi trạng thái

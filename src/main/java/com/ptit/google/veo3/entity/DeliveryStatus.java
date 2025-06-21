@@ -4,6 +4,7 @@ public enum DeliveryStatus {
     DA_GUI("Đã gửi"),
     CHUA_GUI("Chưa gửi"),
     CAN_SUA_GAP("Cần sửa gấp"),
+    SUA_XONG_CAN_GUI("Sửa xong, cần gửi"),
     HUY("Huỷ");
 
     private final String displayName;
