@@ -529,6 +529,43 @@ public class VideoController {
     }
 
     /**
+     * PUT /api/v1/videos/{id}/bill-image-url - Cập nhật URL hình ảnh hóa đơn
+     * <p>
+     * Chỉ người tạo video mới có quyền cập nhật hình ảnh hóa đơn.
+     *
+     * @param id           - ID của video cần cập nhật
+     * @param billImageUrl - URL hình ảnh hóa đơn mới
+     * @return ResponseEntity chứa thông tin video đã cập nhật
+     */
+    @PutMapping("/{id}/bill-image-url")
+    public ResponseEntity<ApiResponse<VideoResponseDto>> updateBillImageUrl(
+            @PathVariable Long id,
+            @RequestParam String billImageUrl) {
+        
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to update bill image URL for video ID: {} to: {}", 
+                tenantId, id, billImageUrl);
+        
+        try {
+            VideoResponseDto updatedVideo = videoService.updateBillImageUrl(id, billImageUrl);
+            return ResponseUtil.ok("URL hình ảnh hóa đơn đã được cập nhật thành công", updatedVideo);
+        } catch (VideoService.VideoNotFoundException e) {
+            log.warn("[Tenant: {}] Video not found for ID {}: {}", tenantId, id, e.getMessage());
+            return ResponseUtil.notFound(e.getMessage());
+        } catch (SecurityException e) {
+            log.warn("[Tenant: {}] Security violation updating bill image URL for video ID {}: {}", 
+                    tenantId, id, e.getMessage());
+            return ResponseUtil.forbidden(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            log.warn("[Tenant: {}] Invalid request for video ID {}: {}", tenantId, id, e.getMessage());
+            return ResponseUtil.badRequest(e.getMessage());
+        } catch (Exception e) {
+            log.error("[Tenant: {}] Error updating bill image URL for video ID {}: ", tenantId, id, e);
+            return ResponseUtil.internalServerError("Lỗi khi cập nhật URL hình ảnh hóa đơn: " + e.getMessage());
+        }
+    }
+
+    /**
      * GET /api/v1/videos/assigned-staff - Lấy danh sách các nhân viên được giao khác nhau
      *
      * @return ResponseEntity chứa danh sách tên nhân viên

@@ -38,6 +38,7 @@ public interface IVideoService {
     
     // URL operations
     VideoResponseDto updateVideoUrl(Long id, String videoUrl);
+    VideoResponseDto updateBillImageUrl(Long id, String billImageUrl);
     
     // Query operations
     Page<VideoResponseDto> getAllVideos(int page, int size, String sortBy, String sortDirection,

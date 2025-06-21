@@ -402,6 +402,70 @@ public class VideoService implements IVideoService {
     }
 
     /**
+     * Cập nhật URL hình ảnh hóa đơn
+     * <p>
+     * PERMISSION LOGIC: Chỉ có người tạo video mới có quyền cập nhật bill image URL
+     * 
+     * @param id ID của video
+     * @param billImageUrl URL hình ảnh hóa đơn mới
+     * @return VideoResponseDto với thông tin đã cập nhật
+     * @throws VideoNotFoundException nếu không tìm thấy video
+     * @throws SecurityException nếu người dùng không phải là người tạo video
+     * @throws IllegalArgumentException nếu URL không hợp lệ
+     */
+    @Transactional
+    public VideoResponseDto updateBillImageUrl(Long id, String billImageUrl) {
+        log.info("Updating bill image URL for video ID: {} to URL: {}", id, billImageUrl);
+
+        Video existingVideo = findVideoByIdOrThrow(id);
+
+        // SECURITY CHECK: Kiểm tra người dùng hiện tại có phải người tạo video không
+        String currentUser = jwtTokenService.getCurrentUserNameFromJwt();
+        if (!existingVideo.getCreatedBy().equals(currentUser)) {
+            log.warn("User '{}' attempted to update bill image URL for video {} created by '{}'", 
+                     currentUser, id, existingVideo.getCreatedBy());
+            throw new SecurityException("Chỉ người tạo video mới có quyền cập nhật hình ảnh hóa đơn");
+        }
+
+        // Validate bill image URL
+        if (billImageUrl != null) {
+            String trimmedUrl = billImageUrl.trim();
+            if (trimmedUrl.isEmpty()) {
+                throw new IllegalArgumentException("URL hình ảnh hóa đơn không được để trống");
+            }
+            if (trimmedUrl.length() > 500) {
+                throw new IllegalArgumentException("URL hình ảnh hóa đơn không được vượt quá 500 ký tự");
+            }
+            // Basic URL format validation
+            if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+                throw new IllegalArgumentException("URL hình ảnh hóa đơn phải bắt đầu bằng http:// hoặc https://");
+            }
+        }
+
+        // Lưu giá trị cũ để audit logging
+        String oldBillImageUrl = existingVideo.getBillImageUrl();
+
+        existingVideo.setBillImageUrl(billImageUrl != null ? billImageUrl.trim() : null);
+        Video updatedVideo = videoRepository.save(existingVideo);
+
+        // Audit log cho việc cập nhật bill image URL
+        auditService.logVideoBusinessAction(
+                updatedVideo.getId(),
+                AuditAction.UPDATE_BILL_IMAGE_URL,
+                String.format("Cập nhật URL hình ảnh hóa đơn từ '%s' sang '%s'",
+                              oldBillImageUrl != null ? oldBillImageUrl : "null", 
+                              billImageUrl != null ? billImageUrl.trim() : "null"),
+                "billImageUrl",
+                oldBillImageUrl,
+                billImageUrl != null ? billImageUrl.trim() : null
+        );
+
+        log.info("Bill image URL updated successfully for video ID: {} by user: {}",
+                id, currentUser);
+        return mapToResponseDto(updatedVideo);
+    }
+
+    /**
      * Hủy video - Reset về trạng thái chưa ai nhận (ADMIN ONLY)
      */
     @Transactional

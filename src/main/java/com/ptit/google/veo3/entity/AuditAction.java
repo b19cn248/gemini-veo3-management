@@ -82,6 +82,12 @@ public enum AuditAction {
      */
     UPDATE_PRICE("UPDATE_PRICE", "Cập nhật giá bán"),
     
+    /**
+     * Cập nhật URL hình ảnh hóa đơn
+     * Khi staff hoặc sales upload bill image
+     */
+    UPDATE_BILL_IMAGE_URL("UPDATE_BILL_IMAGE_URL", "Cập nhật hình ảnh hóa đơn"),
+    
     // ============= SYSTEM OPERATIONS =============
     /**
      * Tự động reset video
@@ -184,6 +190,7 @@ public enum AuditAction {
                this == ASSIGN_STAFF || 
                this == UNASSIGN_STAFF || 
                this == UPDATE_VIDEO_URL ||
+               this == UPDATE_BILL_IMAGE_URL ||
                this == CUSTOMER_APPROVAL || 
                this == CUSTOMER_REVISION;
     }
