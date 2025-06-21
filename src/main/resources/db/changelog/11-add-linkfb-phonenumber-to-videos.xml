@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+    Migration 11: Add linkfb and phone_number fields to videos table
+    
+    Business Requirements:
+    - linkfb: Link Facebook của khách hàng (VARCHAR(500), optional)
+    - phone_number: Số điện thoại khách hàng (VARCHAR(20), optional)
+    
+    Impact:
+    - Affects POST /api/v1/videos and PUT /api/v1/videos/{id} APIs
+    - Allows collecting additional customer contact information
+    -->
+
+    <changeSet id="11-add-linkfb-phonenumber-to-videos" author="system">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="videos"/>
+            <not>
+                <columnExists tableName="videos" columnName="linkfb"/>
+            </not>
+            <not>
+                <columnExists tableName="videos" columnName="phone_number"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="videos">
+            <column name="linkfb" type="VARCHAR(500)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="phone_number" type="VARCHAR(20)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+
+        <rollback>
+            <dropColumn tableName="videos" columnName="linkfb"/>
+            <dropColumn tableName="videos" columnName="phone_number"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

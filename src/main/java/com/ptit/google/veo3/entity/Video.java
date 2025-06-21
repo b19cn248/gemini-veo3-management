@@ -161,6 +161,20 @@ public class Video extends BaseEntity {
     private String billImageUrl;
 
     /**
+     * Link Facebook của khách hàng
+     * Thông tin liên hệ bổ sung
+     */
+    @Column(name = "linkfb", length = 500)
+    private String linkfb;
+
+    /**
+     * Số điện thoại của khách hàng
+     * Thông tin liên hệ bổ sung
+     */
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
+    /**
      * Quan hệ Many-to-One với User (người được giao)
      * OPTIONAL: Có thể null nếu chưa assign cho ai
      * Sử dụng LAZY loading để tối ưu performance

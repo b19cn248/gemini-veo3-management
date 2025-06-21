@@ -72,4 +72,10 @@ public class VideoRequestDto {
     @Size(max = 500, message = "URL hình ảnh hóa đơn không được vượt quá 500 ký tự")
     private String billImageUrl;
 
+    @Size(max = 500, message = "Link Facebook không được vượt quá 500 ký tự")
+    private String linkfb;
+
+    @Size(max = 20, message = "Số điện thoại không được vượt quá 20 ký tự")
+    private String phoneNumber;
+
 }

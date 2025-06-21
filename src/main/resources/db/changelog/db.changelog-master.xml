@@ -50,4 +50,7 @@
     <!-- Version 1.9: Bill Image URL feature - Thêm bill_image_url cho videos -->
     <include file="db/changelog/10-add-bill-image-url-to-videos.xml" relativeToChangelogFile="false"/>
 
+    <!-- Version 1.10: Customer Contact Info - Thêm linkfb và phone_number cho videos -->
+    <include file="db/changelog/11-add-linkfb-phonenumber-to-videos.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>

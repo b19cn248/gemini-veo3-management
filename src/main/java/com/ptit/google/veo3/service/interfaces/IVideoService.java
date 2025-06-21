@@ -4,6 +4,7 @@ import com.ptit.google.veo3.dto.StaffSalaryDto;
 import com.ptit.google.veo3.dto.VideoRequestDto;
 import com.ptit.google.veo3.dto.VideoResponseDto;
 import com.ptit.google.veo3.dto.SalesSalaryDto;
+import com.ptit.google.veo3.dto.CustomerContactDto;
 import com.ptit.google.veo3.entity.VideoStatus;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
@@ -84,4 +85,7 @@ public interface IVideoService {
     List<Map<String, Object>> getActiveStaffLimits();
     boolean isStaffLimited(String staffName);
     Map<String, Object> getStaffQuotaInfo(String staffName);
+    
+    // Customer contact operations
+    CustomerContactDto getCustomerContactById(Long videoId);
 }

@@ -42,6 +42,8 @@ public class VideoResponseDto {
     private BigDecimal price; // Giá bán video cho khách hàng
     private String createdBy;
     private String billImageUrl; // URL hình ảnh hóa đơn thanh toán
+    private String linkfb; // Link Facebook của khách hàng
+    private String phoneNumber; // Số điện thoại của khách hàng
 
     /**
      * Helper method để format thời lượng video thành định dạng HH:mm:ss

@@ -37,6 +37,8 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         dto.setOrderValue(entity.getOrderValue());
         dto.setPrice(entity.getPrice());
         dto.setBillImageUrl(entity.getBillImageUrl());
+        dto.setLinkfb(entity.getLinkfb());
+        dto.setPhoneNumber(entity.getPhoneNumber());
         
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
@@ -73,6 +75,8 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         entity.setOrderValue(dto.getOrderValue());
         entity.setPrice(dto.getPrice());
         entity.setBillImageUrl(dto.getBillImageUrl());
+        entity.setLinkfb(dto.getLinkfb());
+        entity.setPhoneNumber(dto.getPhoneNumber());
         
         return entity;
     }
@@ -99,6 +103,8 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         entity.setOrderValue(dto.getOrderValue());
         entity.setPrice(dto.getPrice());
         entity.setBillImageUrl(dto.getBillImageUrl());
+        entity.setLinkfb(dto.getLinkfb());
+        entity.setPhoneNumber(dto.getPhoneNumber());
     }
 
     public Video fromRequestDto(VideoRequestDto requestDto) {
@@ -126,6 +132,8 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         entity.setOrderValue(requestDto.getOrderValue());
         entity.setPrice(requestDto.getPrice());
         entity.setBillImageUrl(requestDto.getBillImageUrl());
+        entity.setLinkfb(requestDto.getLinkfb());
+        entity.setPhoneNumber(requestDto.getPhoneNumber());
         
         return entity;
     }
@@ -151,5 +159,7 @@ public class VideoMapper extends AbstractBaseMapper<Video, VideoResponseDto> {
         entity.setOrderValue(requestDto.getOrderValue());
         entity.setPrice(requestDto.getPrice());
         entity.setBillImageUrl(requestDto.getBillImageUrl());
+        entity.setLinkfb(requestDto.getLinkfb());
+        entity.setPhoneNumber(requestDto.getPhoneNumber());
     }
 }

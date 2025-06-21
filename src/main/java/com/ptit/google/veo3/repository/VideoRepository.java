@@ -4,6 +4,7 @@ package com.ptit.google.veo3.repository;
 import com.ptit.google.veo3.dto.StaffSalaryDto;
 import com.ptit.google.veo3.dto.SalesSalaryDto;
 import com.ptit.google.veo3.dto.SalesSalaryProjection;
+import com.ptit.google.veo3.dto.CustomerContactDto;
 import com.ptit.google.veo3.entity.DeliveryStatus;
 import com.ptit.google.veo3.entity.PaymentStatus;
 import com.ptit.google.veo3.entity.Video;
@@ -458,5 +459,6 @@ public interface VideoRepository extends JpaRepository<Video, Long> {
     long countVideosByStaffAssignedToday(@Param("assignedStaff") String assignedStaff,
                                         @Param("startOfDay") LocalDateTime startOfDay,
                                         @Param("endOfDay") LocalDateTime endOfDay);
+
 
 }

@@ -1692,6 +1692,10 @@ public class VideoService implements IVideoService {
                 .ifPresent(existingVideo::setOrderValue);
         Optional.ofNullable(requestDto.getPrice())
                 .ifPresent(existingVideo::setPrice);
+        Optional.ofNullable(requestDto.getLinkfb())
+                .ifPresent(existingVideo::setLinkfb);
+        Optional.ofNullable(requestDto.getPhoneNumber())
+                .ifPresent(existingVideo::setPhoneNumber);
     }
 
     /**
@@ -1716,6 +1720,8 @@ public class VideoService implements IVideoService {
                 .paymentDate(dto.getPaymentDate())
                 .orderValue(dto.getOrderValue())
                 .price(dto.getPrice())
+                .linkfb(dto.getLinkfb())
+                .phoneNumber(dto.getPhoneNumber())
                 .build();
     }
 
@@ -1747,6 +1753,24 @@ public class VideoService implements IVideoService {
                 .orderValue(video.getOrderValue())
                 .price(video.getPrice())
                 .billImageUrl(video.getBillImageUrl())
+                .linkfb(video.getLinkfb())
+                .phoneNumber(video.getPhoneNumber())
+                .build();
+    }
+
+    /**
+     * Get customer contact information by video ID
+     */
+    @Override
+    public CustomerContactDto getCustomerContactById(Long videoId) {
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new VideoNotFoundException("Video not found with ID: " + videoId));
+        
+        return CustomerContactDto.builder()
+                .videoId(video.getId())
+                .customerName(video.getCustomerName())
+                .linkfb(video.getLinkfb())
+                .phoneNumber(video.getPhoneNumber())
                 .build();
     }
 

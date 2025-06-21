@@ -43,7 +43,7 @@ import java.util.Map;
  * <p>
  * Endpoints:
  * - POST   /api/v1/videos                    - Tạo mới video
- * - PUT    /api/v1/videos/{id}               - Cập nhật video
+ * - PUT    /api/v1/videos/{id}  /api/v1/videos/{id}               - Cập nhật video
  * - DELETE /api/v1/videos/{id}               - Xóa video
  * - GET    /api/v1/videos/{id}               - Lấy chi tiết video
  * - GET    /api/v1/videos                    - Lấy danh sách video (có phân trang)
@@ -63,6 +63,7 @@ import java.util.Map;
  * - DELETE /api/v1/videos/staff-limit       - Hủy giới hạn nhân viên (ADMIN ONLY)
  * - GET    /api/v1/videos/staff-limits      - Lấy danh sách giới hạn đang active
  * - GET    /api/v1/videos/staff-limit/check - Kiểm tra quota hằng ngày của nhân viên
+ * - GET    /api/v1/videos/{id}/customer-contact - Lấy thông tin liên hệ khách hàng theo ID (NEW API)
  */
 @RestController
 @RequestMapping("/api/v1/videos")
@@ -1015,6 +1016,30 @@ public class VideoController {
             log.error("[Tenant: {}] Error checking staff quota for '{}': ", tenantId, staffName, e);
             return ResponseUtil.internalServerError("Lỗi khi kiểm tra quota nhân viên: " + e.getMessage());
         }
+    }
+
+    /**
+     * GET /api/v1/videos/{id}/customer-contact - Lấy thông tin liên hệ khách hàng theo ID
+     * <p>
+     * API đơn giản để lấy thông tin liên hệ của một khách hàng cụ thể:
+     * - Tên khách hàng
+     * - Link Facebook (có thể click mở tab mới + copy button)
+     * - Số điện thoại (có thể copy + tel link)
+     * 
+     * @param id - ID của video cần lấy thông tin liên hệ khách hàng
+     * @return ResponseEntity chứa thông tin liên hệ khách hàng
+     * - 200 OK: Lấy thông tin thành công
+     * - 404 NOT_FOUND: Video không tồn tại
+     * - 400 BAD_REQUEST: ID không hợp lệ
+     */
+    @GetMapping("/{id}/customer-contact")
+    public ResponseEntity<ApiResponse<CustomerContactDto>> getCustomerContactById(@PathVariable Long id) {
+        String tenantId = TenantContext.getTenantId();
+        log.info("[Tenant: {}] Received request to get customer contact for video ID: {}", tenantId, id);
+
+        CustomerContactDto contact = videoService.getCustomerContactById(id);
+        
+        return ResponseUtil.ok("Lấy thông tin liên hệ khách hàng thành công", contact);
     }
 
     /**
