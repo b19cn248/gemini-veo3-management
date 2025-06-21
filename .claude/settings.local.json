@@ -12,7 +12,8 @@
       "Bash(rm:*)",
       "Bash(java:*)",
       "Bash(true)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

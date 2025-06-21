@@ -356,6 +356,9 @@ public class VideoController {
                 status, assignedStaff, deliveryStatus, paymentStatus, fromPaymentDate, toPaymentDate,
                 fromDateCreatedVideo, toDateCreatedVideo, createdBy);
 
+        // Apply billImageUrl permission logic to all videos in the page
+        applyBillImageUrlPermissions(videoPage.getContent());
+
         return ResponseUtil.okPaginated("Lấy danh sách video thành công", videoPage);
     }
 
@@ -371,6 +374,10 @@ public class VideoController {
         log.info("[Tenant: {}] Received request to get all videos without pagination", tenantId);
 
         List<VideoResponseDto> videos = videoService.getAllVideos();
+        
+        // Apply billImageUrl permission logic
+        applyBillImageUrlPermissions(videos);
+        
         return ResponseUtil.ok("Lấy danh sách video thành công", videos);
     }
 
@@ -388,6 +395,10 @@ public class VideoController {
         log.info("[Tenant: {}] Received request to search videos by customer name: {}", tenantId, customerName);
 
         List<VideoResponseDto> videos = videoService.searchByCustomerName(customerName);
+        
+        // Apply billImageUrl permission logic
+        applyBillImageUrlPermissions(videos);
+        
         return ResponseUtil.ok(
                 String.format("Tìm thấy %d video cho khách hàng '%s'", videos.size(), customerName),
                 videos
@@ -408,6 +419,10 @@ public class VideoController {
         log.info("[Tenant: {}] Received request to search video by ID: {}", tenantId, id);
 
         List<VideoResponseDto> videos = videoService.searchById(id);
+        
+        // Apply billImageUrl permission logic
+        applyBillImageUrlPermissions(videos);
+        
         String message = videos.isEmpty() ?
                 String.format("Không tìm thấy video với ID '%d'", id) :
                 String.format("Tìm thấy video với ID '%d'", id);
@@ -427,6 +442,10 @@ public class VideoController {
         log.info("[Tenant: {}] Received request to get videos by status: {}", tenantId, status);
 
         List<VideoResponseDto> videos = videoService.getVideosByStatus(status);
+        
+        // Apply billImageUrl permission logic
+        applyBillImageUrlPermissions(videos);
+        
         return ResponseUtil.ok(
                 String.format("Lấy danh sách video có trạng thái '%s' thành công", status),
                 videos
@@ -457,6 +476,10 @@ public class VideoController {
                 tenantId, assignedStaff, deliveryStatus, paymentStatus);
 
         List<VideoResponseDto> videos = videoService.filterVideos(assignedStaff, deliveryStatus, paymentStatus);
+        
+        // Apply billImageUrl permission logic
+        applyBillImageUrlPermissions(videos);
+        
         return ResponseUtil.ok("Lọc video thành công", videos);
     }
 
@@ -991,6 +1014,34 @@ public class VideoController {
         } catch (Exception e) {
             log.error("[Tenant: {}] Error checking staff quota for '{}': ", tenantId, staffName, e);
             return ResponseUtil.internalServerError("Lỗi khi kiểm tra quota nhân viên: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Apply billImageUrl permission logic to a list of videos
+     * <p>
+     * Logic phân quyền cho billImageUrl:
+     * 1. Super Admin (realm admin): Xem được tất cả billImageUrl
+     * 2. Resource Admin (video-veo3-be): Chỉ xem được billImageUrl của video do mình tạo (so sánh createdBy)
+     * 3. User khác: billImageUrl luôn là null
+     *
+     * @param videos Danh sách video cần áp dụng logic phân quyền
+     */
+    private void applyBillImageUrlPermissions(List<VideoResponseDto> videos) {
+        String currentUserName = jwtTokenService.getCurrentUserNameFromJwt();
+        boolean isRealmAdmin = jwtTokenService.isRealmAdmin();
+        boolean isResourceAdmin = jwtTokenService.isVideoVeo3BeAdmin();
+        
+        for (VideoResponseDto video : videos) {
+            // Logic phân quyền cho billImageUrl:
+            // 1. Super Admin (realm admin): Xem được tất cả billImageUrl
+            // 2. Resource Admin (video-veo3-be): Chỉ xem được billImageUrl của video do mình tạo
+            // 3. User khác: billImageUrl luôn là null
+            if (!isRealmAdmin) {
+                if (!isResourceAdmin || !currentUserName.equals(video.getCreatedBy())) {
+                    video.setBillImageUrl(null);
+                }
+            }
         }
     }
 }
